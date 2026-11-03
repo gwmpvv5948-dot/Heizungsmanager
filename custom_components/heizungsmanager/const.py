@@ -1,0 +1,25 @@
+"""Shared defaults; temperatures are explicitly provisional user settings."""
+DOMAIN = "heizungsmanager"
+DEFAULTS = {
+    "temperature_sensor": "sensor.wz_temp",
+    "secondary_temperature_sensor": "sensor.0x881a14fffe0e9a1e_temperature",
+    "primary_temperature_weight": 75,
+    "primary_temperature_offset": 0.0,
+    "secondary_temperature_offset": 0.0,
+    "temperature_smoothing_minutes": 3,
+    "window_sensor": "binary_sensor.wz_terasse",
+    "heat_pump": "climate.wz_midea_ac",
+    "radiators": "climate.wz_vtherm",
+    "weather": "",
+    "power_sensor": "",
+    "weekday_start": "06:20:00",
+    "weekend_start": "08:00:00",
+    "night_start": "22:00:00",
+    "comfort_temperature": 21.0,
+    "night_temperature": 18.0,
+    "max_preheat_minutes": 120,
+    "morning_support_minutes": 45,
+    "window_delay_seconds": 30,
+    "sensor_timeout_minutes": 120,
+    "manual_pause_minutes": 120,
+}

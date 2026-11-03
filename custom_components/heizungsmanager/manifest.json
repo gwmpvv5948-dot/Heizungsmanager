@@ -1,0 +1,19 @@
+{
+  "domain": "heizungsmanager",
+  "name": "Heizungsmanager",
+  "version": "0.1.3",
+  "config_flow": true,
+  "documentation": "https://github.com/gwmpvv5948-dot/Heizungsmanager",
+  "dependencies": [
+    "http",
+    "frontend",
+    "panel_custom",
+    "websocket_api"
+  ],
+  "iot_class": "local_push",
+  "codeowners": [
+    "@gwmpvv5948-dot"
+  ],
+  "requirements": [],
+  "issue_tracker": "https://github.com/gwmpvv5948-dot/Heizungsmanager/issues"
+}

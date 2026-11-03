@@ -1,0 +1,82 @@
+{
+  "title": "Heizungsmanager",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wohnzimmer einrichten",
+        "description": "Start im Beobachtungsmodus. Zeiten bedeuten: Bis dahin soll es warm sein. Alle Temperaturen müssen in °C vorliegen.",
+        "data": {
+          "temperature_sensor": "Primärer Temperatursensor · KNX (°C)",
+          "window_sensor": "Terrassentürkontakt (on = offen)",
+          "heat_pump": "Midea über Versatile Thermostat",
+          "radiators": "Gemeinsames Heizkörperthermostat",
+          "weather": "Wetterentität für Dresden",
+          "power_sensor": "Optional: gemessene Midea-Leistung (W/kW)",
+          "weekday_start": "Mo–Fr: Komforttemperatur erreicht ab",
+          "weekend_start": "Sa–So: Komforttemperatur erreicht ab",
+          "night_start": "Beginn der Nachtabsenkung (täglich)",
+          "comfort_temperature": "Komforttemperatur (°C)",
+          "night_temperature": "Nachttemperatur (°C)",
+          "max_preheat_minutes": "Maximale Vorheizzeit (Minuten)",
+          "morning_support_minutes": "Heizkörperunterstützung nach Komfortbeginn, maximal (Minuten)",
+          "window_delay_seconds": "Türverzögerung (Sekunden)",
+          "sensor_timeout_minutes": "Maximales Alter der Raumtemperatur (Minuten)",
+          "manual_pause_minutes": "Automatikpause nach manueller Geräteänderung (Minuten)",
+          "secondary_temperature_sensor": "Zweiter Temperatursensor · Ikea (optional)",
+          "primary_temperature_weight": "Gewicht primärer Sensor (%) – Rest für zweiten Sensor",
+          "primary_temperature_offset": "Korrektur primärer Sensor (°C)",
+          "secondary_temperature_offset": "Korrektur zweiter Sensor (°C)",
+          "temperature_smoothing_minutes": "Glättung: Zeitkonstante (Minuten, 0 = aus)"
+        }
+      }
+    },
+    "error": {
+      "same_device": "Bitte zwei unterschiedliche Thermostate wählen.",
+      "temperature_order": "Die Nachttemperatur darf nicht über der Komforttemperatur liegen.",
+      "schedule_order": "Beide Komfortzeiten müssen vor Beginn der Nachtabsenkung liegen.",
+      "same_sensor": "Bitte zwei unterschiedliche Temperatursensoren wählen.",
+      "recursive_sensor": "Die berechnete Raumtemperatur darf nicht als eigene Quelle verwendet werden."
+    },
+    "abort": {
+      "already_configured": "Das Wohnzimmer ist bereits eingerichtet."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Heizungsmanager konfigurieren",
+        "description": "Änderungen laden die Integration neu. Danach startet sie wieder im Beobachtungsmodus.",
+        "data": {
+          "temperature_sensor": "Primärer Temperatursensor · KNX (°C)",
+          "window_sensor": "Terrassentürkontakt (on = offen)",
+          "heat_pump": "Midea über Versatile Thermostat",
+          "radiators": "Gemeinsames Heizkörperthermostat",
+          "weather": "Wetterentität für Dresden",
+          "power_sensor": "Optional: gemessene Midea-Leistung (W/kW)",
+          "weekday_start": "Mo–Fr: Komforttemperatur erreicht ab",
+          "weekend_start": "Sa–So: Komforttemperatur erreicht ab",
+          "night_start": "Beginn der Nachtabsenkung (täglich)",
+          "comfort_temperature": "Komforttemperatur (°C)",
+          "night_temperature": "Nachttemperatur (°C)",
+          "max_preheat_minutes": "Maximale Vorheizzeit (Minuten)",
+          "morning_support_minutes": "Heizkörperunterstützung nach Komfortbeginn, maximal (Minuten)",
+          "window_delay_seconds": "Türverzögerung (Sekunden)",
+          "sensor_timeout_minutes": "Maximales Alter der Raumtemperatur (Minuten)",
+          "manual_pause_minutes": "Automatikpause nach manueller Geräteänderung (Minuten)",
+          "secondary_temperature_sensor": "Zweiter Temperatursensor · Ikea (optional)",
+          "primary_temperature_weight": "Gewicht primärer Sensor (%) – Rest für zweiten Sensor",
+          "primary_temperature_offset": "Korrektur primärer Sensor (°C)",
+          "secondary_temperature_offset": "Korrektur zweiter Sensor (°C)",
+          "temperature_smoothing_minutes": "Glättung: Zeitkonstante (Minuten, 0 = aus)"
+        }
+      }
+    },
+    "error": {
+      "same_device": "Bitte zwei unterschiedliche Thermostate wählen.",
+      "temperature_order": "Die Nachttemperatur darf nicht über der Komforttemperatur liegen.",
+      "schedule_order": "Beide Komfortzeiten müssen vor Beginn der Nachtabsenkung liegen.",
+      "same_sensor": "Bitte zwei unterschiedliche Temperatursensoren wählen.",
+      "recursive_sensor": "Die berechnete Raumtemperatur darf nicht als eigene Quelle verwendet werden."
+    }
+  }
+}
