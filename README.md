@@ -1,4 +1,4 @@
-# Heizungsmanager Wohnzimmer · 0.1.4
+# Heizungsmanager Wohnzimmer · 0.1.5
 
 Quellcode: [gwmpvv5948-dot/Heizungsmanager](https://github.com/gwmpvv5948-dot/Heizungsmanager). Versionsübersicht: [CHANGELOG.md](CHANGELOG.md).
 
@@ -125,3 +125,5 @@ Die Nachttemperatur ist eine Einschaltschwelle. Ohne Unterschreitung bleibt die 
 ### Live-Prüfung 0.1.3
 
 In HA installiert und geprüft: 75/25-Gewichtung, beide Quellen mit aktuellen Messwerten, Anzeige des gemeinsamen Raumwerts, Speichern der neuen Konfiguration und Nutzung durch beide WZ-VTherm-Regler. Bei `WZ VTherm` und `WZ Midea AC` ist `sensor.heizungsmanager_wz_raumtemperatur` als Raumtemperatursensor gespeichert. Der Manager bleibt im Beobachtungsmodus. Die zwischenzeitlich vom Benutzer konfigurierte Komforttemperatur wurde beibehalten.
+
+Seit 0.1.5 sind die Details zur gewichteten Raumtemperatur standardmaessig eingeklappt. Die Raumtemperatur selbst bleibt prominent sichtbar; Einzelwerte, Gewichte und Glaettung sind unter Temperatursensoren und Berechnung abrufbar.

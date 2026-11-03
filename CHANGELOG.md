@@ -1,5 +1,11 @@
 # Änderungen
 
+## 0.1.5 – 03.11.2026
+
+- Einzelwerte und Berechnung der Raumtemperatur standardmäßig eingeklappt.
+- Beim Aktualisieren der Karte bleibt ein geöffneter Temperaturbereich geöffnet.
+- Enthält die bedarfsgesteuerte Nachtregelung aus 0.1.4.
+
 ## 0.1.4 – 03.11.2026
 
 - Midea nachts aus; Nachheizen erst unter der Nachttemperatur.

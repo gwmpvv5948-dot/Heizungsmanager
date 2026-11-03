@@ -14,7 +14,7 @@ def find_coordinator(hass, msg):
 def payload(hass, coordinator):
     registry = er.async_get(hass)
     entry_id = coordinator.entry.entry_id
-    return {"config": coordinator.config, "mode": coordinator.mode, "version": "0.1.4",
+    return {"config": coordinator.config, "mode": coordinator.mode, "version": "0.1.5",
         "plan_entity": registry.async_get_entity_id("sensor", DOMAIN, f"{entry_id}_plan"),
         "mode_entity": registry.async_get_entity_id("select", DOMAIN, f"{entry_id}_mode")}
 
