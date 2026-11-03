@@ -135,9 +135,26 @@ def next_schedule_time(now, config):
     return min(boundaries)
 
 
-def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_active=False, override=None):
+def cycle_guard(now, requested, active, since, config, temperature, target):
+    """Protect manager HVAC mode changes, not the device's internal compressor."""
+    if active and temperature >= target + config.get("pump_overheat_margin", 0.5):
+        return False, "Übertemperatur: Mindestlaufzeit aufgehoben", 0
+    if requested == active:
+        return requested, "", 0
+    minutes = config.get("pump_min_on_minutes" if active else "pump_min_off_minutes", 15)
+    remaining = max(0, since + minutes * 60 - now)
+    if remaining > 0:
+        label = "Mindestlaufzeit" if active else "Mindestpause"
+        return active, label, math.ceil(remaining)
+    return requested, "", 0
+
+
+def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_active=False, override=None,
+              pump_state=None, pump_state_since=None):
     rows = []
     predicted = temp
+    active = pump_heat_active if pump_state is None else pump_state
+    since = now.timestamp() - 86400 if pump_state_since is None else pump_state_since
     # Timestamp arithmetic preserves exactly 24 elapsed hours through DST changes.
     for step in range(145):
         when = datetime.fromtimestamp(now.timestamp() + step * 600, now.tzinfo)
@@ -165,6 +182,17 @@ def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_act
             enabled = pump_heat_active
             if not enabled:
                 reason += f" · Kein Heizbedarf: Midea aus; Start erst unter {target - 0.2:.1f} °C"
+        requested = enabled
+        enabled, protection, remaining = cycle_guard(
+            when.timestamp(), requested, active, since, config, predicted, target)
+        if protection:
+            reason += f" · Taktschutz: {protection}"
+            if remaining:
+                reason += f" noch {math.ceil(remaining / 60)} Minuten"
+        if enabled != active:
+            since = when.timestamp()
+            active = enabled
+        pump_heat_active = enabled
         rad = 1.0 if support and predicted < target - 0.15 else 0.0
         required = (control_target - predicted) * 3 + model.loss * (predicted - outside) - model.radiator_gain * rad
         pump = max(0.0, min(1.0, required / model.pump_gain)) if enabled else 0.0
@@ -173,6 +201,8 @@ def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_act
                      "outdoor": round(outside, 1), "weather_source": source,
                      "phase": phase, "radiators": bool(rad), "heat_pump": enabled,
                      "control_target": round(control_target, 2),
+                     "cycle_protection": protection, "cycle_remaining_seconds": remaining,
+                     "requested_heat_pump": requested,
                      "pump_demand_estimate": round(pump, 2), "reason": reason})
         predicted += model.rate(predicted, outside, pump, rad) / 6
     return rows

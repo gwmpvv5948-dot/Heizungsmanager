@@ -298,7 +298,13 @@ class HeatingCoordinator(DataUpdateCoordinator):
         else:
             self.previous = None
         forecast = self.forecast if self.forecast_updated and now.timestamp() - self.forecast_updated < 7200 else []
-        plan = make_plan(now, temp, outside, forecast, self.config, self.model, self.pump_heat_active, self.override) if temp is not None else []
+        pump_state = self.state("heat_pump")
+        pump_on = bool(pump_state and pump_state.state == "heat")
+        # last_changed tracks the HVAC mode, not changing temperature/power attributes.
+        # Restarting HA conservatively starts a fresh protection interval.
+        pump_since = pump_state.last_changed.timestamp() if pump_state else now.timestamp()
+        plan = make_plan(now, temp, outside, forecast, self.config, self.model,
+                         pump_on, self.override, pump_on, pump_since) if temp is not None else []
         row = plan[0] if plan else None
         self.pump_heat_active = bool(row and row["heat_pump"])
         status = row["phase"] if row else "Raumsensor fehlt oder ist veraltet"

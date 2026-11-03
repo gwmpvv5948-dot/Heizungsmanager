@@ -30,7 +30,7 @@ class HeizungsmanagerCard extends HTMLElement {
     const path = key => plan.map((p,i) => `${i?'L':'M'}${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(' ');
     const groups = [];
     plan.slice(0,-1).forEach((p,i) => {
-      const label = p.override_active ? (p.radiators ? 'Temporär · Heizkörper' + (p.heat_pump?' + Midea':'') : p.heat_pump?'Temporär · Midea':'Temporär · Midea aus') : p.radiators ? (p.heat_pump?'Gemeinsam aufheizen':'Heizkörper') : p.phase === 'Nacht' ? (p.heat_pump ? 'Nacht · Nachheizen' : 'Nacht · Midea aus') : p.heat_pump?'Halten · Midea':'Temperatur erreicht · Midea aus';
+      const label = p.cycle_protection === 'Mindestpause' ? 'Taktschutz · Midea aus' : p.cycle_protection === 'Mindestlaufzeit' ? 'Taktschutz · Mindestlaufzeit' : p.override_active ? (p.radiators ? 'Temporär · Heizkörper' + (p.heat_pump?' + Midea':'') : p.heat_pump?'Temporär · Midea':'Temporär · Midea aus') : p.radiators ? (p.heat_pump?'Gemeinsam aufheizen':'Heizkörper') : p.phase === 'Nacht' ? (p.heat_pump ? 'Nacht · Nachheizen' : 'Nacht · Midea aus') : p.heat_pump?'Halten · Midea':'Temperatur erreicht · Midea aus';
       const previous = groups.at(-1);
       if (previous?.label === label) { previous.end = plan[i+1].time; previous.last = i+1; }
       else groups.push({label, start:p.time, end:plan[i+1].time, first:i, last:i+1, reason:p.reason, radiators:p.radiators});

@@ -1,3 +1,9 @@
+## 0.1.7
+
+- Allgemeiner Midea-Taktschutz: konfigurierbare Mindestlaufzeit/Mindestpause (je 15 Minuten) und Übertemperaturgrenze (+0,5 °C).
+- Tatsächliche HVAC-Moduswechsel bestimmen die Fristen; Tür-Heizpause, Sensorfehler und Aus schalten weiterhin sofort ab.
+- Taktschutz wird in der 24-h-Prognose und den Phasenerklärungen sichtbar berücksichtigt.
+
 # Änderungen
 
 ## 0.1.6 - 03.11.2026

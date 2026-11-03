@@ -24,6 +24,9 @@ def schema(values):
         fields[vol.Required(key, default=values[key])] = selector.TimeSelector()
     for key, low, high, step in (("primary_temperature_weight", 1, 99, 1),
                                 ("night_reheat_hysteresis", 0.1, 1.0, 0.1),
+                                ("pump_min_on_minutes", 5, 60, 1),
+                                ("pump_min_off_minutes", 5, 60, 1),
+                                ("pump_overheat_margin", 0.3, 2.0, 0.1),
                                 ("primary_temperature_offset", -3, 3, 0.1),
                                 ("secondary_temperature_offset", -3, 3, 0.1),
                                 ("temperature_smoothing_minutes", 0, 15, 1),

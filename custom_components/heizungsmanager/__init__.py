@@ -25,7 +25,7 @@ async def async_setup_entry(hass, entry):
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     await async_register_panel(hass, frontend_url_path="heizungsmanager",
         webcomponent_name="heizungsmanager-panel", sidebar_title="Heizungsmanager",
-        sidebar_icon="mdi:heat-pump", module_url="/heizungsmanager-static/panel.js?v=0.1.6",
+        sidebar_icon="mdi:heat-pump", module_url="/heizungsmanager-static/panel.js?v=0.1.7",
         config={"entry_id": entry.entry_id}, require_admin=True)
     entry.async_on_unload(entry.add_update_listener(async_options_updated))
     return True

@@ -1,4 +1,4 @@
-# Heizungsmanager Wohnzimmer · 0.1.6
+# Heizungsmanager Wohnzimmer · 0.1.7
 
 Quellcode: [gwmpvv5948-dot/Heizungsmanager](https://github.com/gwmpvv5948-dot/Heizungsmanager). Versionsübersicht: [CHANGELOG.md](CHANGELOG.md).
 
@@ -128,8 +128,18 @@ In HA installiert und geprüft: 75/25-Gewichtung, beide Quellen mit aktuellen Me
 
 Seit 0.1.5 sind die Details zur gewichteten Raumtemperatur standardmaessig eingeklappt. Die Raumtemperatur selbst bleibt prominent sichtbar; Einzelwerte, Gewichte und Glaettung sind unter Temperatursensoren und Berechnung abrufbar.
 
-## Schnellbedienung und Heizbedarf seit 0.1.6
+## Schnellbedienung und Heizbedarf seit 0.1.7
 
 Im Heiz-Fahrplan kann die Wunschtemperatur mit Minus/Plus oder direkt im Zahlenfeld voruebergehend geaendert werden. Dauer: 1 Stunde, 2 Stunden oder bis zur naechsten Planzeit (Komfortbeginn oder Nachtabsenkung). Uebernehmen aktiviert die Abweichung; Zum Zeitplan zurueck beendet sie sofort. Der feste Zeitplan wird nicht geaendert. Die Abweichung wird lokal mit ihrer Ablaufzeit gespeichert und nach einem Neustart angezeigt; der Betriebsmodus bleibt dabei Beobachten. Beobachten und Aus werden durch die Schnellbedienung nicht automatisch aktiviert oder verlassen. Tuerpause, Sensorausfall und manuelle Pause haben weiterhin Vorrang.
 
 Tagsueber und bei temporaeren Wunschtemperaturen startet die Midea erst unter Ziel minus 0,2 Grad und stoppt bei Erreichen des Ziels. Beispiel: Ziel 20,5 Grad, Raum 21,1 Grad bedeutet Midea aus. Bei einer Absenkung wird kein Kuehlmodus aktiviert. Nachts gilt weiterhin die separate Einschaltschwelle mit Hysterese. Der Fahrplan verwendet dieselbe Heizbedarfspruefung und markiert temporaere Phasen und deren anschliessende Rueckkehr zum Zeitplan.
+
+### Midea-Taktschutz (0.1.7)
+
+Unter Einstellungen → Midea · Taktschutz sind Mindestlaufzeit und Mindestpause jeweils auf 15 Minuten voreingestellt (5–60 Minuten einstellbar). Sie gelten für alle automatischen Heizfreigaben, auch nachts, beim Vorheizen und bei temporären Wunschtemperaturen. Der Fahrplan zeigt gesperrte Neustarts und verlängerte Freigaben samt Restzeit. Die Prognose hat ein 10-Minuten-Raster, die tatsächliche Regelung prüft alle 30 Sekunden sowie bei Zustandsänderungen.
+
+Die Zeit wird aus dem letzten HVAC-Moduswechsel des konfigurierten Midea-Reglers ermittelt; Messwertänderungen und Betriebsartwechsel des Managers setzen sie nicht zurück. Nach einem HA-Neustart beginnt konservativ eine neue Schutzfrist. Ein Neustart kann deshalb später erfolgen als von der Temperaturregelung gewünscht. Auch 18 °C sind während einer Mindestpause keine garantierte Untergrenze.
+
+Aus, die Tür-Heizpause und ungültige Raum-/Türsensoren schalten weiterhin sofort ab. Eine Überschreitung von Soll + 0,5 °C beendet die Mindestlaufzeit vorzeitig (einstellbar). Innerhalb der Mindestlaufzeit kann die Heizfreigabe bei bereits erreichtem Soll bestehen bleiben; der Geräte-Sollwert begrenzt dabei die Wärmeabgabe. Manuelle Geräteänderungen behalten Vorrang.
+
+Dies verhindert häufige Ein-/Aus-Befehle des Managers. Interne Verdichterzyklen und weitere Eingriffe des VTherm-Reglers bleiben Geräte-/Reglerverantwortung. Die 15 Minuten sind konfigurierbare Startwerte, keine Herstellervorgabe.

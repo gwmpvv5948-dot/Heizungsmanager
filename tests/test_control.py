@@ -38,7 +38,7 @@ HeatingCoordinator=sys.modules['test_heating.coordinator'].HeatingCoordinator
 DEFAULTS=sys.modules['test_heating.const'].DEFAULTS
 
 def state(entity,value,**attrs):
-    return types.SimpleNamespace(entity_id=entity,state=value,attributes=attrs,last_changed=NOW-timedelta(minutes=5),last_updated=NOW,last_reported=NOW)
+    return types.SimpleNamespace(entity_id=entity,state=value,attributes=attrs,last_changed=NOW-timedelta(minutes=30),last_updated=NOW,last_reported=NOW)
 
 class ControlTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -176,6 +176,69 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
         await self.c.async_tick()
         self.assertFalse(self.c.data['plan'][0]['heat_pump'])
         self.assertTrue(any(c.args[1]=='set_hvac_mode' and c.args[2].get('entity_id')=='climate.wz_midea_ac' and c.args[2]['hvac_mode']=='off' for c in self.service.await_args_list))
+
+    async def test_recently_stopped_pump_waits_even_after_mode_change(self):
+        self.states['climate.wz_midea_ac'].last_changed=NOW-timedelta(minutes=2)
+        await self.c.async_set_mode('Automatik')
+        row=self.c.data['plan'][0]
+        self.assertFalse(row['heat_pump'])
+        self.assertTrue(row['requested_heat_pump'])
+        self.assertEqual(row['cycle_protection'],'Mindestpause')
+        self.assertEqual(row['cycle_remaining_seconds'],13*60)
+        self.assertFalse(any(c.args[1]=='set_hvac_mode' and c.args[2]['hvac_mode']=='heat' for c in self.service.await_args_list))
+        dt.now=lambda:NOW+timedelta(minutes=13)
+        await self.c.async_tick()
+        self.assertTrue(self.c.data['plan'][0]['heat_pump'])
+
+    async def test_minimum_runtime_holds_mode_but_not_higher_target(self):
+        pump=self.states['climate.wz_midea_ac'];pump.state='heat';pump.last_changed=NOW-timedelta(minutes=2)
+        self.states['sensor.wz_temp'].state='21.1'
+        self.c.mode='Automatik'
+        await self.c.async_tick()
+        row=self.c.data['plan'][0]
+        self.assertTrue(row['heat_pump'])
+        self.assertFalse(row['requested_heat_pump'])
+        self.assertEqual(row['control_target'],21)
+        self.assertEqual(row['cycle_protection'],'Mindestlaufzeit')
+        self.assertFalse(any(c.args[1]=='set_hvac_mode' and c.args[2]['hvac_mode']=='off' and c.args[2]['entity_id']==pump.entity_id for c in self.service.await_args_list))
+
+    async def test_overtemperature_overrides_minimum_runtime(self):
+        pump=self.states['climate.wz_midea_ac'];pump.state='heat';pump.last_changed=NOW
+        self.states['sensor.wz_temp'].state='21.5'
+        await self.c.async_set_mode('Automatik')
+        self.assertFalse(self.c.data['plan'][0]['heat_pump'])
+        self.assertIn('Übertemperatur',self.c.data['reason'])
+
+    async def test_explicit_off_overrides_minimum_runtime(self):
+        pump=self.states['climate.wz_midea_ac'];pump.state='heat';pump.last_changed=NOW
+        await self.c.async_set_mode('Aus')
+        self.assertTrue(any(c.args[1]=='set_hvac_mode' and c.args[2].get('entity_id')==pump.entity_id and c.args[2]['hvac_mode']=='off' for c in self.service.await_args_list))
+
+    async def test_door_pause_overrides_minimum_runtime(self):
+        pump=self.states['climate.wz_midea_ac'];pump.state='heat';pump.last_changed=NOW
+        self.states['binary_sensor.wz_terasse'].state='on'
+        await self.c.async_set_mode('Automatik')
+        self.assertTrue(any(c.args[1]=='set_hvac_mode' and c.args[2].get('entity_id')==pump.entity_id and c.args[2]['hvac_mode']=='off' for c in self.service.await_args_list))
+
+    async def test_quick_override_cannot_bypass_minimum_pause(self):
+        self.states['climate.wz_midea_ac'].last_changed=NOW-timedelta(minutes=1)
+        self.c.mode='Automatik'
+        await self.c.async_set_override(22,'1h')
+        self.assertFalse(self.c.data['plan'][0]['heat_pump'])
+        self.assertEqual(self.c.data['plan'][0]['cycle_protection'],'Mindestpause')
+
+    async def test_night_minimum_pause_and_plan_transition(self):
+        night=NOW.replace(hour=23)
+        dt.now=lambda:night
+        for item in self.states.values():item.last_reported=night
+        pump=self.states['climate.wz_midea_ac'];pump.last_changed=night-timedelta(minutes=1)
+        self.states['sensor.wz_temp'].state='17.9'
+        await self.c.async_set_mode('Automatik')
+        plan=self.c.data['plan']
+        self.assertFalse(plan[0]['heat_pump'])
+        self.assertEqual(plan[0]['cycle_remaining_seconds'],14*60)
+        self.assertFalse(plan[1]['heat_pump'])
+        self.assertTrue(plan[2]['heat_pump'])
 
     async def test_failed_first_stop_still_attempts_other_device(self):
         for key in ('climate.wz_midea_ac','climate.wz_vtherm'): self.states[key].state='heat'

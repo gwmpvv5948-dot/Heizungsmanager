@@ -1,4 +1,4 @@
-import './heizungsmanager-card.js?v=0.1.6';
+import './heizungsmanager-card.js?v=0.1.7';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [
@@ -25,7 +25,12 @@ const SETTINGS = [
   {title:'Wunschtemperaturen',description:'Tagsüber hält die Midea die Komforttemperatur. Nachts bleibt sie aus und heizt nur bei Unterschreitung nach.',fields:[
     {key:'comfort_temperature',label:'Komforttemperatur (°C)',type:'number',min:16,max:24,step:0.5},
     {key:'night_temperature',label:'Nachttemperatur · Einschaltschwelle (°C)',type:'number',min:7,max:22,step:0.5,hint:'Nachts bleibt die Midea aus und startet erst unter diesem Raumwert.'},
-    {key:'night_reheat_hysteresis',label:'Nacht-Nachheizen · Hysterese (°C)',type:'number',min:0.1,max:1,step:0.1,hint:'Bei 18 °C und 0,3 °C Hysterese: Start unter 18 °C, aus ab 18,3 °C. Geräte-Sollwert während des kurzen Nachheizens liegt etwas höher.'}
+    {key:'night_reheat_hysteresis',label:'Nacht-Nachheizen · Hysterese (°C)',type:'number',min:0.1,max:1,step:0.1,hint:'Bei 18 °C und 0,3 °C Hysterese: Start unter 18 °C, regulär aus ab 18,3 °C; der Taktschutz kann die Heizfreigabe verlängern. Geräte-Sollwert beim Nachheizen liegt etwas höher.'}
+  ]},
+  {title:'Midea · Taktschutz',description:'Gilt tagsüber, nachts und bei Schnelländerungen. Schützt die Heizfreigabe des Managers; interne Verdichterzyklen regelt die Midea selbst. Tür-Heizpause, ungültige Sensoren und Aus haben Vorrang.',fields:[
+    {key:'pump_min_on_minutes',label:'Mindestlaufzeit (Minuten)',type:'number',min:5,max:60,step:1,hint:'Standard 15 Minuten. Die Heizfreigabe bleibt kurz bestehen, auch wenn die Solltemperatur bereits erreicht ist. Der Geräte-Sollwert begrenzt die Wärmeabgabe.'},
+    {key:'pump_min_off_minutes',label:'Mindestpause vor Neustart (Minuten)',type:'number',min:5,max:60,step:1,hint:'Standard 15 Minuten. Gilt auch nach Tür-Heizpause oder Wechsel der Betriebsart. Die Raumtemperatur kann währenddessen unter die Wunschtemperatur fallen.'},
+    {key:'pump_overheat_margin',label:'Mindestlaufzeit abbrechen ab Soll + (°C)',type:'number',min:0.3,max:2,step:0.1,hint:'Standard 0,5 °C. Verhindert Weiterheizen bei deutlicher Überschreitung; anschließend gilt die Mindestpause.'}
   ]},
   {title:'Gemeinsames Aufheizen am Morgen',description:'Heizkörper und Midea heizen morgens gemeinsam. Danach hält die Midea die Temperatur.',fields:[
     {key:'max_preheat_minutes',label:'Maximale Vorheizzeit (Minuten)',type:'number',min:15,max:240,step:5,hint:'Obergrenze für den berechneten Heizbeginn vor der Komfortzeit.'},
