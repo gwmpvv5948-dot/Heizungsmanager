@@ -121,6 +121,45 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.c.data['plan'][0]['heat_pump'])
         self.assertTrue(any(c.args[1]=='set_hvac_mode' and c.args[2].get('entity_id')=='climate.wz_midea_ac' and c.args[2]['hvac_mode']=='off' for c in self.service.await_args_list))
 
+    async def test_automatic_does_not_start_midea_at_21_1_with_target_20_5(self):
+        self.states['sensor.wz_temp'].state='21.1'
+        self.c.config['comfort_temperature']=20.5
+        await self.c.async_set_mode('Automatik')
+        self.assertFalse(self.c.data['plan'][0]['heat_pump'])
+        self.assertFalse(any(c.args[1]=='set_hvac_mode' and c.args[2]['hvac_mode']=='heat' for c in self.service.await_args_list))
+
+    async def test_running_midea_stops_when_daytime_target_is_reached(self):
+        self.states['sensor.wz_temp'].state='21.1'
+        self.states['climate.wz_midea_ac'].state='heat'
+        self.c.config['comfort_temperature']=20.5
+        await self.c.async_set_mode('Automatik')
+        self.assertTrue(any(c.args[1]=='set_hvac_mode' and c.args[2].get('entity_id')=='climate.wz_midea_ac' and c.args[2]['hvac_mode']=='off' for c in self.service.await_args_list))
+
+    async def test_quick_override_preserves_config_and_observation(self):
+        config=dict(self.c.config)
+        await self.c.async_set_override(20,'2h')
+        self.assertEqual(self.c.data['target'],20)
+        self.assertEqual(self.c.config,config)
+        self.assertEqual(self.c.mode,'Beobachten')
+        self.service.assert_not_awaited()
+        self.assertEqual(self.c.override['until'],NOW.timestamp()+7200)
+        await self.c.async_set_override()
+        self.assertIsNone(self.c.override)
+        self.assertEqual(self.c.data['target'],21)
+
+    async def test_lower_quick_override_does_not_request_heat_above_target(self):
+        self.states['sensor.wz_temp'].state='21.1'
+        self.c.mode='Automatik'
+        await self.c.async_set_override(20,'1h')
+        self.assertFalse(self.c.data['plan'][0]['heat_pump'])
+        self.assertFalse(any(c.args[1]=='set_hvac_mode' and c.args[2]['hvac_mode']=='heat' for c in self.service.await_args_list))
+
+    async def test_invalid_quick_override_does_not_change_state(self):
+        for temperature in (float('nan'),25,20.1):
+            with self.assertRaises(ValueError):await self.c.async_set_override(temperature,'2h')
+        with self.assertRaises(ValueError):await self.c.async_set_override(20,'invalid')
+        self.assertIsNone(self.c.override)
+
     async def test_night_reheats_only_until_upper_boundary(self):
         night=NOW.replace(hour=23)
         dt.now=lambda:night

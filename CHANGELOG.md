@@ -1,5 +1,12 @@
 # Änderungen
 
+## 0.1.6 - 03.11.2026
+
+- Schnellbedienung mit temporaerer Wunschtemperatur, Ablaufzeit und Rueckkehr zum Zeitplan.
+- Tagesregelung prueft echten Raum-Heizbedarf: bei 21,1 Grad und Ziel 20,5 Grad bleibt Midea aus.
+- Tageshysterese: Start unter Ziel minus 0,2 Grad, Ende bei Zieltemperatur.
+- 40 Tests, inklusive des gemeldeten Automatik-Fehlers.
+
 ## 0.1.5 – 03.11.2026
 
 - Einzelwerte und Berechnung der Raumtemperatur standardmäßig eingeklappt.
@@ -36,4 +43,4 @@
 
 ## Noch nicht umgesetzt
 
-- Temporäre Wunschtemperatur direkt im Fahrplan, mit Ablaufzeit und Rückkehr zum Zeitplan.
+- Keine weiteren Funktionen in dieser Liste geplant.

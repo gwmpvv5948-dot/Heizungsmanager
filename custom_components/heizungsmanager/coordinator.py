@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import timedelta
+from datetime import datetime, timedelta
 import logging
 
 from homeassistant.core import callback
@@ -11,7 +11,7 @@ from homeassistant.helpers.event import async_track_time_interval, async_track_s
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 from .const import DEFAULTS, DOMAIN
-from .model import ThermalModel, finite, make_plan
+from .model import ThermalModel, finite, make_plan, next_schedule_time
 from .temperature import RoomTemperature
 
 _LOGGER = logging.getLogger(__name__)
@@ -39,7 +39,8 @@ class HeatingCoordinator(DataUpdateCoordinator):
         self.error = None
         self.last_save = 0
         self.room_temperature = RoomTemperature()
-        self.night_heat_active = False
+        self.pump_heat_active = False
+        self.override = None
 
     async def async_initialize(self):
         saved = await self.store.async_load() or {}
@@ -47,6 +48,10 @@ class HeatingCoordinator(DataUpdateCoordinator):
         # Deliberately never restore automatic control after restart/reload.
         self.mode = "Beobachten"
         self.history = saved.get("history", [])[-144:]
+        restored = saved.get("override")
+        if isinstance(restored, dict) and finite(restored.get("temperature"), 16, 24) is not None and finite(restored.get("until"), 0, 9999999999) is not None:
+            if restored["until"] > dt_util.now().timestamp():
+                self.override = restored
         self.unsubs.append(async_track_time_interval(self.hass, self.async_tick, timedelta(seconds=30)))
         watched = self.watched_entities()
         self.unsubs.append(async_track_state_change_event(self.hass, watched, self.async_changed))
@@ -58,7 +63,25 @@ class HeatingCoordinator(DataUpdateCoordinator):
         await self.async_save()
 
     async def async_save(self):
-        await self.store.async_save({"model": self.model.dump(), "history": self.history[-144:]})
+        await self.store.async_save({"model": self.model.dump(), "history": self.history[-144:], "override": self.override})
+
+    async def async_set_override(self, temperature=None, duration="2h"):
+        if temperature is not None:
+            temperature = finite(temperature, 16, 24)
+            if temperature is None or abs(temperature * 2 - round(temperature * 2)) > 0.001:
+                raise ValueError("Bitte 16 bis 24 °C in Schritten von 0,5 °C wählen.")
+            if duration not in ("1h", "2h", "schedule"):
+                raise ValueError("Ungültige Dauer")
+        async with self.lock:
+            now = dt_util.now()
+            until = next_schedule_time(now, self.config) if duration == "schedule" else now.timestamp() + (3600 if duration == "1h" else 7200)
+            self.override = {"temperature": temperature, "until": until, "duration": duration} if temperature is not None else None
+            self.manual_until = None
+            self.commands = {}
+            self.previous = None
+            self.pump_heat_active = False
+            await self._tick()
+            await self.async_save()
 
     @callback
     def async_changed(self, event):
@@ -69,7 +92,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
         self.manual_until = None
         self.commands = {}
         self.previous = None
-        self.night_heat_active = False
+        self.pump_heat_active = False
         await self.async_tick()
 
     async def async_apply_options(self):
@@ -80,7 +103,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
             self.commands = {}
             self.previous = None
             self.room_temperature = RoomTemperature()
-            self.night_heat_active = False
+            self.pump_heat_active = False
             self.open_since = None
             self.forecast = []
             self.last_weather_request = 0
@@ -232,6 +255,9 @@ class HeatingCoordinator(DataUpdateCoordinator):
 
     async def _tick(self):
         now = dt_util.now()
+        if self.override and self.override["until"] <= now.timestamp():
+            self.override = None
+            self.previous = None
         await self.async_weather(now)
         self.error = None
         temperature_info = self.read_room_temperature(now)
@@ -272,9 +298,9 @@ class HeatingCoordinator(DataUpdateCoordinator):
         else:
             self.previous = None
         forecast = self.forecast if self.forecast_updated and now.timestamp() - self.forecast_updated < 7200 else []
-        plan = make_plan(now, temp, outside, forecast, self.config, self.model, self.night_heat_active) if temp is not None else []
+        plan = make_plan(now, temp, outside, forecast, self.config, self.model, self.pump_heat_active, self.override) if temp is not None else []
         row = plan[0] if plan else None
-        self.night_heat_active = bool(row and row["phase"] == "Nacht" and row["heat_pump"])
+        self.pump_heat_active = bool(row and row["heat_pump"])
         status = row["phase"] if row else "Raumsensor fehlt oder ist veraltet"
         reason = row["reason"] if row else "Keine belastbare Raumtemperatur; automatische Steuerung pausiert"
         if window_unknown:
@@ -302,6 +328,8 @@ class HeatingCoordinator(DataUpdateCoordinator):
                 "pump_active": p, "radiator_demand": r, "mode": self.mode, "phase": status})
             self.history = self.history[-144:]
         data = {"status": status, "reason": reason, "mode": self.mode, "temperature": temp,
+                "override": {**self.override, "until_iso": datetime.fromtimestamp(self.override["until"], now.tzinfo).isoformat()} if self.override else None,
+                "entry_id": self.entry.entry_id,
                 "temperature_info": temperature_info, "outdoor": outside, "target": row["target"] if row else None,
                 "window_open": window_open, "window_unknown": window_unknown,
                 "manual_until": self.manual_until.isoformat() if self.manual_until else None,

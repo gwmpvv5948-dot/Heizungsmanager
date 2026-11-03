@@ -1,4 +1,4 @@
-# Heizungsmanager Wohnzimmer · 0.1.5
+# Heizungsmanager Wohnzimmer · 0.1.6
 
 Quellcode: [gwmpvv5948-dot/Heizungsmanager](https://github.com/gwmpvv5948-dot/Heizungsmanager). Versionsübersicht: [CHANGELOG.md](CHANGELOG.md).
 
@@ -116,7 +116,7 @@ python3 -m compileall -q custom_components
 node --check custom_components/heizungsmanager/frontend/heizungsmanager-card.js
 ```
 
-Geprüft: 30 Modell-, Steuerungs-, Temperatur- und API-Tests sowie Python- und JavaScript-Syntax. Die Steuerungstests verwenden HA-Service-Doubles. Version 0.1.3 wurde am 03.11.2026 in der vorhandenen HA-Installation installiert und im Beobachtungsmodus eingerichtet. Live geprüft: eigene Menüseite, vollständiger Einstellungsreiter, Speichern und Wiederladen der Konfiguration, Wetterquelle Dresden-Stadt sowie Menüposition direkt unter Strommanager. Ein automatischer Heizversuch wurde noch nicht durchgeführt.
+Geprüft: 40 Modell-, Steuerungs-, Temperatur- und API-Tests sowie Python- und JavaScript-Syntax. Die Steuerungstests verwenden HA-Service-Doubles. Version 0.1.3 wurde am 03.11.2026 in der vorhandenen HA-Installation installiert und im Beobachtungsmodus eingerichtet. Live geprüft: eigene Menüseite, vollständiger Einstellungsreiter, Speichern und Wiederladen der Konfiguration, Wetterquelle Dresden-Stadt sowie Menüposition direkt unter Strommanager. Ein automatischer Heizversuch wurde noch nicht durchgeführt.
 
 ### Nachtregelung seit 0.1.4
 
@@ -127,3 +127,9 @@ Die Nachttemperatur ist eine Einschaltschwelle. Ohne Unterschreitung bleibt die 
 In HA installiert und geprüft: 75/25-Gewichtung, beide Quellen mit aktuellen Messwerten, Anzeige des gemeinsamen Raumwerts, Speichern der neuen Konfiguration und Nutzung durch beide WZ-VTherm-Regler. Bei `WZ VTherm` und `WZ Midea AC` ist `sensor.heizungsmanager_wz_raumtemperatur` als Raumtemperatursensor gespeichert. Der Manager bleibt im Beobachtungsmodus. Die zwischenzeitlich vom Benutzer konfigurierte Komforttemperatur wurde beibehalten.
 
 Seit 0.1.5 sind die Details zur gewichteten Raumtemperatur standardmaessig eingeklappt. Die Raumtemperatur selbst bleibt prominent sichtbar; Einzelwerte, Gewichte und Glaettung sind unter Temperatursensoren und Berechnung abrufbar.
+
+## Schnellbedienung und Heizbedarf seit 0.1.6
+
+Im Heiz-Fahrplan kann die Wunschtemperatur mit Minus/Plus oder direkt im Zahlenfeld voruebergehend geaendert werden. Dauer: 1 Stunde, 2 Stunden oder bis zur naechsten Planzeit (Komfortbeginn oder Nachtabsenkung). Uebernehmen aktiviert die Abweichung; Zum Zeitplan zurueck beendet sie sofort. Der feste Zeitplan wird nicht geaendert. Die Abweichung wird lokal mit ihrer Ablaufzeit gespeichert und nach einem Neustart angezeigt; der Betriebsmodus bleibt dabei Beobachten. Beobachten und Aus werden durch die Schnellbedienung nicht automatisch aktiviert oder verlassen. Tuerpause, Sensorausfall und manuelle Pause haben weiterhin Vorrang.
+
+Tagsueber und bei temporaeren Wunschtemperaturen startet die Midea erst unter Ziel minus 0,2 Grad und stoppt bei Erreichen des Ziels. Beispiel: Ziel 20,5 Grad, Raum 21,1 Grad bedeutet Midea aus. Bei einer Absenkung wird kein Kuehlmodus aktiviert. Nachts gilt weiterhin die separate Einschaltschwelle mit Hysterese. Der Fahrplan verwendet dieselbe Heizbedarfspruefung und markiert temporaere Phasen und deren anschliessende Rueckkehr zum Zeitplan.

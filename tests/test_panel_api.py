@@ -3,7 +3,7 @@ import ast
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import Mock
+from unittest.mock import Mock, AsyncMock
 
 path=Path(__file__).resolve().parents[1]/'custom_components/heizungsmanager/websocket.py'
 tree=ast.parse(path.read_text())
@@ -53,3 +53,22 @@ class PanelApiTests(IsolatedAsyncioTestCase):
         hass.config_entries.async_update_entry.assert_called_once()
         self.assertEqual(hass.config_entries.async_update_entry.call_args.kwargs['options']['power_sensor'],'')
         self.assertTrue(c.send_result.call_args.args[1]['saved'])
+
+    async def test_override_denies_non_admin(self):
+        hass,c=self.make(False)
+        await ns['set_override'](hass,c,{'id':1,'entry_id':'wz','action':'set','temperature':20})
+        self.assertEqual(c.send_error.call_args.args[1],'unauthorized')
+
+    async def test_override_requires_temperature(self):
+        hass,c=self.make()
+        await ns['set_override'](hass,c,{'id':1,'entry_id':'wz','action':'set'})
+        self.assertEqual(c.send_error.call_args.args[1],'invalid_override')
+
+    async def test_clear_override_calls_coordinator(self):
+        hass,c=self.make()
+        coordinator=hass.data['heizungsmanager']['wz']
+        coordinator.async_set_override=AsyncMock()
+        coordinator.override=None
+        await ns['set_override'](hass,c,{'id':1,'entry_id':'wz','action':'clear'})
+        coordinator.async_set_override.assert_awaited_once_with(None,'2h')
+        self.assertIsNone(c.send_result.call_args.args[1]['override'])

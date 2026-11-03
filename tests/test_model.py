@@ -76,6 +76,24 @@ class ModelTests(unittest.TestCase):
         self.assertTrue(m.night_reheat(18.1,18,True,.3))
         self.assertFalse(m.night_reheat(18.3,18,True,.3))
 
+    def test_override_expires_in_plan_without_changing_schedule(self):
+        now=datetime(2026,11,4,12,tzinfo=TZ)
+        override={'temperature':20,'until':now.timestamp()+7200}
+        plan=m.make_plan(now,21,5,[],self.cfg,self.model,override=override)
+        self.assertEqual(plan[0]['target'],20)
+        self.assertEqual(plan[0]['scheduled_target'],21)
+        self.assertFalse(plan[0]['heat_pump'])
+        self.assertEqual(plan[12]['target'],21)
+        self.assertFalse(plan[12]['override_active'])
+
+    def test_next_schedule_boundary(self):
+        now=datetime(2026,11,4,21,tzinfo=TZ)
+        end=datetime.fromtimestamp(m.next_schedule_time(now,self.cfg),TZ)
+        self.assertEqual((end.hour,end.minute),(22,0))
+        now=datetime(2026,11,6,23,tzinfo=TZ)
+        end=datetime.fromtimestamp(m.next_schedule_time(now,self.cfg),TZ)
+        self.assertEqual((end.weekday(),end.hour,end.minute),(5,8,0))
+
     def test_night_plan_shows_passive_cooling_then_reheat(self):
         now = datetime(2026,11,4,23,tzinfo=TZ)
         plan=m.make_plan(now,18.1,5,[],self.cfg,self.model)

@@ -14,7 +14,7 @@ def find_coordinator(hass, msg):
 def payload(hass, coordinator):
     registry = er.async_get(hass)
     entry_id = coordinator.entry.entry_id
-    return {"config": coordinator.config, "mode": coordinator.mode, "version": "0.1.5",
+    return {"config": coordinator.config, "mode": coordinator.mode, "version": "0.1.6",
         "plan_entity": registry.async_get_entity_id("sensor", DOMAIN, f"{entry_id}_plan"),
         "mode_entity": registry.async_get_entity_id("select", DOMAIN, f"{entry_id}_mode")}
 
@@ -23,6 +23,30 @@ def payload(hass, coordinator):
 def async_register_api(hass):
     websocket_api.async_register_command(hass, get_config)
     websocket_api.async_register_command(hass, save_config)
+    websocket_api.async_register_command(hass, set_override)
+
+
+@websocket_api.websocket_command({vol.Required("type"): "heizungsmanager/override",
+    vol.Required("entry_id"): str, vol.Required("action"): vol.In(["set", "clear"]),
+    vol.Optional("temperature"): vol.Coerce(float), vol.Optional("duration", default="2h"): str})
+@websocket_api.async_response
+async def set_override(hass, connection, msg):
+    if connection.user is None or not connection.user.is_admin:
+        connection.send_error(msg["id"], "unauthorized", "Administratorrechte erforderlich")
+        return
+    coordinator = find_coordinator(hass, msg)
+    if coordinator is None:
+        connection.send_error(msg["id"], "not_found", "Heizungsmanager nicht eingerichtet")
+        return
+    if msg["action"] == "set" and "temperature" not in msg:
+        connection.send_error(msg["id"], "invalid_override", "Wunschtemperatur fehlt")
+        return
+    try:
+        await coordinator.async_set_override(msg.get("temperature") if msg["action"] == "set" else None, msg.get("duration", "2h"))
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_override", str(err))
+        return
+    connection.send_result(msg["id"], {"override": coordinator.override, "mode": coordinator.mode})
 
 
 @websocket_api.websocket_command({vol.Required("type"): "heizungsmanager/config", vol.Required("entry_id"): str})

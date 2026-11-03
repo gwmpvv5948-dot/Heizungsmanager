@@ -30,7 +30,7 @@ class HeizungsmanagerCard extends HTMLElement {
     const path = key => plan.map((p,i) => `${i?'L':'M'}${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(' ');
     const groups = [];
     plan.slice(0,-1).forEach((p,i) => {
-      const label = p.radiators ? 'Gemeinsam aufheizen' : p.phase === 'Nacht' ? (p.heat_pump ? 'Nacht · Nachheizen' : 'Nacht · Midea aus') : 'Halten · Midea';
+      const label = p.override_active ? (p.radiators ? 'Temporär · Heizkörper' + (p.heat_pump?' + Midea':'') : p.heat_pump?'Temporär · Midea':'Temporär · Midea aus') : p.radiators ? (p.heat_pump?'Gemeinsam aufheizen':'Heizkörper') : p.phase === 'Nacht' ? (p.heat_pump ? 'Nacht · Nachheizen' : 'Nacht · Midea aus') : p.heat_pump?'Halten · Midea':'Temperatur erreicht · Midea aus';
       const previous = groups.at(-1);
       if (previous?.label === label) { previous.end = plan[i+1].time; previous.last = i+1; }
       else groups.push({label, start:p.time, end:plan[i+1].time, first:i, last:i+1, reason:p.reason, radiators:p.radiators});
@@ -38,18 +38,22 @@ class HeizungsmanagerCard extends HTMLElement {
     const ticks = Array.from({length:5},(_,i) => min+(max-min)*i/4);
     const grid = ticks.map(v => `<line x1="${left}" x2="${width-16}" y1="${y(v)}" y2="${y(v)}" stroke="currentColor" opacity=".09"/><text x="4" y="${y(v)+4}" fill="currentColor" font-size="11">${v.toFixed(0)}°</text>`).join('');
     const times = plan.filter((_,i)=>i%24===0).map((p,i)=>`<text x="${x(i*24)}" y="220" text-anchor="middle" fill="currentColor" font-size="11">${clock(p.time)}</text>`).join('');
-    const bars = groups.map(g=>`<rect x="${x(g.first)}" y="193" width="${Math.max(1,x(g.last)-x(g.first)-1)}" height="9" rx="3" fill="${g.radiators?'#f4aa58':g.label==='Nacht · Midea aus'?'#65788b':'#42bfa7'}"><title>${esc(g.label)} ${clock(g.start)}–${clock(g.end)}</title></rect>`).join('');
+    const bars = groups.map(g=>`<rect x="${x(g.first)}" y="193" width="${Math.max(1,x(g.last)-x(g.first)-1)}" height="9" rx="3" fill="${g.radiators?'#f4aa58':g.label.includes('Midea aus')?'#65788b':'#42bfa7'}"><title>${esc(g.label)} ${clock(g.start)}–${clock(g.end)}</title></rect>`).join('');
     const banner = a.error ? `<div class="notice error">Steuerungsfehler: ${esc(a.error)}</div>` : '';
     const pause = a.window_open || a.window_unknown || a.manual_until || a.mode === 'Aus';
     const room = a.temperature_info;
     const temperatureDetailsOpen = this.shadowRoot.querySelector('details.temperature-info')?.open ?? false;
     const temperatureDetails = room ? `<details class="temperature-info" ${temperatureDetailsOpen?'open':''}><summary>Temperatursensoren und Berechnung</summary><strong>${esc(room.status)}</strong><div class="sensor-values">${(room.sources||[]).filter(s=>s.entity_id).map((s,i)=>`<div><span class="label">${i===0?'KNX / Primär':'Ikea / Zweiter Sensor'}</span><br><strong>${degree(s.raw)}</strong> ${s.used?`· ${esc(s.effective_weight)} %`:`· ${esc(s.reason || 'Nicht verwendet')}`}<small>${esc(s.entity_id)}${s.offset?` · Korrektur ${degree(s.offset)}`:''}</small></div>`).join('')}</div><div class="label">Gewichtet ${degree(room.weighted,2)} · ${room.smoothing_minutes?`Glättung ${esc(room.smoothing_minutes)} min`:'Ohne Glättung'} · Dieser Raumwert gilt für Planung und Lernen.${room.learning_paused?' Lernen nach Start oder Quellenwechsel kurz pausiert.':''}</div></details>` : '';
+    const quickTemperature = this.quickDraft ?? a.override?.temperature ?? a.target ?? cfg.comfort_temperature ?? 21;
+    const quickDuration = this.quickDuration ?? '2h';
+    const quickControl = a.entry_id ? `<section class="quick"><h3>Wunschtemperatur vorübergehend ändern</h3><p class="label">${a.override?`Temporär <strong>${degree(a.override.temperature)}</strong> bis <strong>${clock(a.override.until_iso)}</strong> · Zeitplan jetzt: ${degree(plan[0]?.scheduled_target)}`:'Der Zeitplan bleibt unverändert. Danach geht es automatisch zurück zum Plan.'}</p><div class="quick-controls"><button data-quick-step="-0.5" aria-label="Wunschtemperatur senken">−</button><label class="sr-only" for="quick-temperature">Temporäre Wunschtemperatur</label><input id="quick-temperature" type="number" min="16" max="24" step="0.5" value="${esc(quickTemperature)}"><span>°C</span><button data-quick-step="0.5" aria-label="Wunschtemperatur erhöhen">+</button><label class="sr-only" for="quick-duration">Dauer der Abweichung</label><select id="quick-duration">${[['1h','1 Stunde'],['2h','2 Stunden'],['schedule','Bis zur nächsten Planzeit']].map(([value,label])=>`<option value="${value}" ${value===quickDuration?'selected':''}>${label}</option>`).join('')}</select><button data-quick-action="set">Übernehmen</button>${a.override?'<button data-quick-action="clear">Zum Zeitplan zurück</button>':''}</div><p class="label">${a.mode==='Beobachten'?'Beobachten: nur Vorschau, keine Heizbefehle.':a.mode==='Aus'?'Betriebsart Aus: keine Temperaturregelung aktiv.':'Die Automatik verwendet diese Wunschtemperatur bis zum Ablauf.'} Bis zur nächsten Planzeit bedeutet Komfortbeginn oder Nachtabsenkung.</p><div class="quick-message" role="status">${esc(this.quickMessage || '')}</div></section>` : '';
     this.shadowRoot.innerHTML = `
       <style>
       :host{display:block}*{box-sizing:border-box}ha-card{display:block;overflow:hidden;background:var(--ha-card-background,var(--card-background-color,#152330));color:var(--primary-text-color,#e7eef5);border-radius:20px;padding:24px;font-family:var(--paper-font-body1_-_font-family,system-ui)}
       header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}h2{margin:0;font-size:22px;font-weight:650}.eyebrow{font-size:11px;letter-spacing:1.6px;color:var(--secondary-text-color,#a9b8c6);margin-bottom:7px}.badge{font-size:12px;background:#42bfa722;color:#42bfa7;padding:7px 11px;border-radius:20px;white-space:nowrap}
       .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:24px 0}.stat{padding:14px;border:1px solid #8293a326;border-radius:12px}.label{color:var(--secondary-text-color,#a9b8c6);font-size:12px}.value{font-size:25px;margin-top:6px;font-variant-numeric:tabular-nums}
       .temperature-info{padding:14px 16px;background:#42bfa70c;border:1px solid #42bfa72b;border-radius:12px;margin:-10px 0 20px;font-size:13px;line-height:1.6}.sensor-values{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:9px 0}.sensor-values small{display:block;overflow-wrap:anywhere;color:var(--secondary-text-color,#a9b8c6);font-size:11px}
+      .quick{padding:16px;border:1px solid #8293a333;border-radius:12px;margin:0 0 20px}.quick h3{margin:0 0 8px}.quick-controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.quick input,.quick select{background:var(--primary-background-color,#152330);color:inherit;border:1px solid #8293a344;border-radius:8px;padding:9px;font:inherit;min-height:38px}.quick input{width:84px}.quick select{max-width:100%}.quick-message{font-size:12px;line-height:1.5}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
       .reason{font-size:14px;line-height:1.5;margin-bottom:18px}.notice{padding:12px;border-radius:10px;background:#f4aa5819;font-size:13px;line-height:1.5;margin:12px 0}.error{background:#e86f6f20}.chart{width:100%;overflow:auto}svg{display:block;width:100%;min-width:520px}.legend{display:flex;gap:18px;font-size:12px;flex-wrap:wrap;color:var(--secondary-text-color,#a9b8c6)}.legend span:before{content:'';display:inline-block;width:16px;height:3px;background:#42bfa7;margin-right:6px;vertical-align:middle}.legend span:nth-child(2):before{background:#f4aa58}.legend span:nth-child(3):before{background:#8999aa}
       h3{font-size:15px;margin:24px 0 12px}.phase{display:grid;grid-template-columns:110px 1fr;gap:12px;padding:13px 0;border-bottom:1px solid #8293a322}.time{font-size:13px;font-variant-numeric:tabular-nums}.phase strong{font-size:13px;font-weight:600}.phase p{font-size:12px;color:var(--secondary-text-color,#a9b8c6);margin:5px 0;line-height:1.5}.dot{display:inline-block;background:#42bfa7;width:7px;height:7px;border-radius:50%;margin-right:7px}.dot.rad{background:#f4aa58}
       details{border-top:1px solid #8293a326;padding-top:14px;margin-top:20px;font-size:13px}summary{cursor:pointer}dl{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;line-height:1.5}dt{color:var(--secondary-text-color,#a9b8c6)}dd{margin:0}footer{margin-top:16px;color:var(--secondary-text-color,#a9b8c6);font-size:11px;line-height:1.6}.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}button{background:transparent;color:inherit;border:1px solid #8293a344;border-radius:9px;padding:9px 13px;cursor:pointer}button.active{background:#42bfa722;border-color:#42bfa7}button:disabled{opacity:.5;cursor:wait}
@@ -58,6 +62,7 @@ class HeizungsmanagerCard extends HTMLElement {
       <ha-card><header><div><div class="eyebrow">WOHNZIMMER · LOKALE REGELUNG</div><h2>Heiz-Fahrplan <span style="font-weight:400;opacity:.55">24 h</span></h2></div><span class="badge">${esc(a.mode)}</span></header>
       <div class="stats"><div class="stat"><div class="label">Raumtemperatur</div><div class="value">${degree(a.temperature,2)}</div></div><div class="stat"><div class="label">Ziel jetzt</div><div class="value">${degree(a.target)}</div></div><div class="stat"><div class="label">Draußen</div><div class="value">${degree(a.outdoor)}</div></div></div>
       ${temperatureDetails}
+      ${quickControl}
       <div class="reason"><strong>${esc(a.status)}</strong><br>${esc(a.reason)}</div>${banner}
       ${a.mode==='Beobachten'?'<div class="notice">Beobachtungsmodus: Dieser Fahrplan ist ein Vorschlag. Der Manager sendet keine Heizbefehle; bestehende Regelungen laufen weiter.</div>':''}
       ${pause?'<div class="notice">Der Fahrplan zeigt den erwarteten Normalbetrieb nach Ende der aktuellen Pause. Zeitpunkt und Auswirkungen der Pause sind nicht vorhersehbar.</div>':''}
@@ -76,6 +81,25 @@ class HeizungsmanagerCard extends HTMLElement {
       catch(error) { button.textContent='Fehler – erneut versuchen'; button.title=String(error); }
       finally { button.disabled=false; }
     }));
+    const temperatureInput=this.shadowRoot.querySelector('#quick-temperature');
+    if(temperatureInput) {
+      temperatureInput.addEventListener('input',()=>{this.quickDraft=Number(temperatureInput.value);});
+      this.shadowRoot.querySelector('#quick-duration').addEventListener('change',event=>{this.quickDuration=event.target.value;});
+      this.shadowRoot.querySelectorAll('[data-quick-step]').forEach(button=>button.addEventListener('click',()=>{
+        this.quickDraft=Math.max(16,Math.min(24,Number(temperatureInput.value)+Number(button.dataset.quickStep)));
+        temperatureInput.value=this.quickDraft;
+      }));
+      this.shadowRoot.querySelectorAll('[data-quick-action]').forEach(button=>button.addEventListener('click',async()=>{
+        if(button.dataset.quickAction==='set' && !temperatureInput.reportValidity())return;
+        button.disabled=true;
+        try {
+          await this._hass.callWS({type:'heizungsmanager/override',entry_id:a.entry_id,action:button.dataset.quickAction,temperature:Number(temperatureInput.value),duration:this.shadowRoot.querySelector('#quick-duration').value});
+          this.quickMessage=button.dataset.quickAction==='clear'?'Temporäre Abweichung beendet.':'Temporäre Wunschtemperatur gespeichert.';
+          this.quickDraft=null;
+        } catch(error) {this.quickMessage=error.message || String(error);}
+        finally {this.render();}
+      }));
+    }
   }
 }
 if (!customElements.get('heizungsmanager-card')) customElements.define('heizungsmanager-card', HeizungsmanagerCard);

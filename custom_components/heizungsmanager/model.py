@@ -127,7 +127,15 @@ def night_reheat(temp, target, active, hysteresis):
     return temp < target + hysteresis if active else temp < target
 
 
-def make_plan(now, temp, current_outside, forecast, config, model, night_heat_active=False):
+def next_schedule_time(now, config):
+    boundaries = []
+    for days in range(3):
+        start, end = day_schedule(now + timedelta(days=days), config)
+        boundaries.extend(point.timestamp() for point in (start, end) if point.timestamp() > now.timestamp())
+    return min(boundaries)
+
+
+def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_active=False, override=None):
     rows = []
     predicted = temp
     # Timestamp arithmetic preserves exactly 24 elapsed hours through DST changes.
@@ -135,22 +143,33 @@ def make_plan(now, temp, current_outside, forecast, config, model, night_heat_ac
         when = datetime.fromtimestamp(now.timestamp() + step * 600, now.tzinfo)
         outside, source = outdoor_at(when, current_outside, forecast)
         target, phase, support, reason = decision(when, predicted, outside, config, model)
+        scheduled_target = target
+        override_active = bool(override and when.timestamp() < override["until"])
+        if override_active:
+            target = override["temperature"]
+            phase = "Temporär"
+            reason = f"Temporäre Wunschtemperatur {target:.1f} °C; anschließend automatisch zurück zum Zeitplan"
         enabled = True
         control_target = target
         if phase == "Nacht":
             hysteresis = config.get("night_reheat_hysteresis", 0.3)
-            night_heat_active = night_reheat(predicted, target, night_heat_active, hysteresis)
-            enabled = night_heat_active
+            pump_heat_active = night_reheat(predicted, target, pump_heat_active, hysteresis)
+            enabled = pump_heat_active
             # A little device headroom lets the external room-based cutoff be reached.
             control_target = target + hysteresis + 0.5 if enabled else target
             reason = (f"Nacht-Nachheizen bis {target + hysteresis:.1f} °C, danach Midea aus" if enabled else
                 f"Midea aus; Nachheizen erst unter {target:.1f} °C")
         else:
-            night_heat_active = False
+            # Daytime and quick overrides: no heat command above the room target.
+            pump_heat_active = predicted < target if pump_heat_active else predicted < target - 0.2
+            enabled = pump_heat_active
+            if not enabled:
+                reason += f" · Kein Heizbedarf: Midea aus; Start erst unter {target - 0.2:.1f} °C"
         rad = 1.0 if support and predicted < target - 0.15 else 0.0
         required = (control_target - predicted) * 3 + model.loss * (predicted - outside) - model.radiator_gain * rad
         pump = max(0.0, min(1.0, required / model.pump_gain)) if enabled else 0.0
         rows.append({"time": when.isoformat(), "target": target, "temperature": round(predicted, 2),
+                     "scheduled_target": scheduled_target, "override_active": override_active,
                      "outdoor": round(outside, 1), "weather_source": source,
                      "phase": phase, "radiators": bool(rad), "heat_pump": enabled,
                      "control_target": round(control_target, 2),
