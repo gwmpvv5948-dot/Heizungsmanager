@@ -17,6 +17,7 @@ DEFAULTS = {
     "night_start": "22:00:00",
     "comfort_temperature": 21.0,
     "night_temperature": 18.0,
+    "night_reheat_hysteresis": 0.3,
     "max_preheat_minutes": 120,
     "morning_support_minutes": 45,
     "window_delay_seconds": 30,

@@ -26,7 +26,8 @@
           "primary_temperature_weight": "Gewicht primärer Sensor (%) – Rest für zweiten Sensor",
           "primary_temperature_offset": "Korrektur primärer Sensor (°C)",
           "secondary_temperature_offset": "Korrektur zweiter Sensor (°C)",
-          "temperature_smoothing_minutes": "Glättung: Zeitkonstante (Minuten, 0 = aus)"
+          "temperature_smoothing_minutes": "Glättung: Zeitkonstante (Minuten, 0 = aus)",
+          "night_reheat_hysteresis": "Nacht-Nachheizen: Hysterese (°C)"
         }
       }
     },
@@ -67,7 +68,8 @@
           "primary_temperature_weight": "Gewicht primärer Sensor (%) – Rest für zweiten Sensor",
           "primary_temperature_offset": "Korrektur primärer Sensor (°C)",
           "secondary_temperature_offset": "Korrektur zweiter Sensor (°C)",
-          "temperature_smoothing_minutes": "Glättung: Zeitkonstante (Minuten, 0 = aus)"
+          "temperature_smoothing_minutes": "Glättung: Zeitkonstante (Minuten, 0 = aus)",
+          "night_reheat_hysteresis": "Nacht-Nachheizen: Hysterese (°C)"
         }
       }
     },

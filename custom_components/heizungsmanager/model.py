@@ -119,10 +119,15 @@ def decision(now, temp, outside, config, model):
             "Midea hält die Komforttemperatur; Heizkörper aus")
     if next_start - timedelta(minutes=next_lead) <= now < next_start:
         return config["comfort_temperature"], "Aufheizen", True, "Vorheizen für den folgenden Morgen"
-    return config["night_temperature"], "Nacht", False, "Midea hält die Nachttemperatur; Heizkörper aus"
+    return config["night_temperature"], "Nacht", False, "Nachts nur bei Unterschreitung nachheizen; Heizkörper aus"
 
 
-def make_plan(now, temp, current_outside, forecast, config, model):
+def night_reheat(temp, target, active, hysteresis):
+    """Start strictly below the floor; finish at the upper hysteresis boundary."""
+    return temp < target + hysteresis if active else temp < target
+
+
+def make_plan(now, temp, current_outside, forecast, config, model, night_heat_active=False):
     rows = []
     predicted = temp
     # Timestamp arithmetic preserves exactly 24 elapsed hours through DST changes.
@@ -130,12 +135,25 @@ def make_plan(now, temp, current_outside, forecast, config, model):
         when = datetime.fromtimestamp(now.timestamp() + step * 600, now.tzinfo)
         outside, source = outdoor_at(when, current_outside, forecast)
         target, phase, support, reason = decision(when, predicted, outside, config, model)
+        enabled = True
+        control_target = target
+        if phase == "Nacht":
+            hysteresis = config.get("night_reheat_hysteresis", 0.3)
+            night_heat_active = night_reheat(predicted, target, night_heat_active, hysteresis)
+            enabled = night_heat_active
+            # A little device headroom lets the external room-based cutoff be reached.
+            control_target = target + hysteresis + 0.5 if enabled else target
+            reason = (f"Nacht-Nachheizen bis {target + hysteresis:.1f} °C, danach Midea aus" if enabled else
+                f"Midea aus; Nachheizen erst unter {target:.1f} °C")
+        else:
+            night_heat_active = False
         rad = 1.0 if support and predicted < target - 0.15 else 0.0
-        required = (target - predicted) * 3 + model.loss * (predicted - outside) - model.radiator_gain * rad
-        pump = max(0.0, min(1.0, required / model.pump_gain))
+        required = (control_target - predicted) * 3 + model.loss * (predicted - outside) - model.radiator_gain * rad
+        pump = max(0.0, min(1.0, required / model.pump_gain)) if enabled else 0.0
         rows.append({"time": when.isoformat(), "target": target, "temperature": round(predicted, 2),
                      "outdoor": round(outside, 1), "weather_source": source,
-                     "phase": phase, "radiators": bool(rad), "heat_pump": True,
+                     "phase": phase, "radiators": bool(rad), "heat_pump": enabled,
+                     "control_target": round(control_target, 2),
                      "pump_demand_estimate": round(pump, 2), "reason": reason})
         predicted += model.rate(predicted, outside, pump, rad) / 6
     return rows

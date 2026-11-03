@@ -1,4 +1,4 @@
-# Heizungsmanager Wohnzimmer · 0.1.3
+# Heizungsmanager Wohnzimmer · 0.1.4
 
 Quellcode: [gwmpvv5948-dot/Heizungsmanager](https://github.com/gwmpvv5948-dot/Heizungsmanager). Versionsübersicht: [CHANGELOG.md](CHANGELOG.md).
 
@@ -32,7 +32,7 @@ Nach dem Einrichten erscheint **Heizungsmanager** als eigener Menüpunkt. Er ent
 Im Dashboard unter Ressourcen eine JavaScript-Modul-Ressource hinzufügen:
 
 ```text
-/heizungsmanager-static/heizungsmanager-card.js?v=0.1.3
+/heizungsmanager-static/heizungsmanager-card.js?v=0.1.4
 ```
 
 Dann eine manuelle Karte anlegen:
@@ -64,7 +64,7 @@ Der Manager steuert die beiden VTherm-Entitäten. Er schreibt nicht gleichzeitig
 
 Bestehende WZ-Sollwertautomationen und Climate-Scheduler-Zeitpläne prüfen und konkurrierende Sollwertvorgaben deaktivieren. Das bestehende Heizungsdashboard darf weiter für manuelle Änderungen verwendet werden. Der Manager erkennt geänderte Betriebsarten oder Solltemperaturen seiner beiden VTherm-Entitäten nach einer kurzen Befehlswartezeit und pausiert dann standardmäßig 120 Minuten. Türzustandswechsel werden davon getrennt behandelt. Änderungen direkt am darunterliegenden Midea-Gerät werden nur erkannt, wenn VTherm sie weitergibt.
 
-Mit **Automatik** übernimmt der Manager die Sollwerte. Er lässt die Midea auch nachts im Heizmodus mit der eingestellten Nachttemperatur. Heizkörper werden außerhalb des Morgenfensters ausgeschaltet. Eine automatische Heizkörper-Zuschaltung tagsüber bei WP-Ausfall ist in 0.1.3 noch nicht enthalten; Gerätefehler werden angezeigt.
+Mit **Automatik** übernimmt der Manager die Sollwerte. Tagsüber hält die Midea die Komforttemperatur. Nachts bleibt sie aus und startet erst unter der eingestellten Nachttemperatur. Bei 18 °C und der standardmäßigen Hysterese von 0,3 °C gilt: Start unter 18 °C, wieder aus ab 18,3 °C. Während des Nachheizens liegt der Geräte-Sollwert etwas höher, damit die am gemeinsamen Raumsensor überwachte Abschaltschwelle erreicht wird. Heizkörper werden außerhalb des Morgenfensters ausgeschaltet. Eine automatische Heizkörper-Zuschaltung tagsüber bei WP-Ausfall ist noch nicht enthalten; Gerätefehler werden angezeigt.
 
 **Nach jedem HA-Neustart, Neuladen der Integration oder Speichern von Einstellungen startet Version 0.1.3 erneut im Beobachtungsmodus.** Es werden dann keine neuen Sollwerte gesendet. Bereits eingestellte Gerätezustände bleiben bestehen, bis ein anderer Regler oder der Benutzer sie verändert. Auch beim Entfernen der Integration werden keine Geräte abgeschaltet.
 
@@ -116,7 +116,11 @@ python3 -m compileall -q custom_components
 node --check custom_components/heizungsmanager/frontend/heizungsmanager-card.js
 ```
 
-Geprüft: 26 Modell-, Steuerungs-, Temperatur- und API-Tests, Python-Syntax, JavaScript-Syntax sowie Darstellung im Browser. Die Steuerungstests verwenden HA-Service-Doubles. Version 0.1.3 wurde am 03.11.2026 in der vorhandenen HA-Installation installiert und im Beobachtungsmodus eingerichtet. Live geprüft: eigene Menüseite, vollständiger Einstellungsreiter, Speichern und Wiederladen der Konfiguration, Wetterquelle Dresden-Stadt sowie Menüposition direkt unter Strommanager. Ein automatischer Heizversuch wurde noch nicht durchgeführt.
+Geprüft: 30 Modell-, Steuerungs-, Temperatur- und API-Tests sowie Python- und JavaScript-Syntax. Die Steuerungstests verwenden HA-Service-Doubles. Version 0.1.3 wurde am 03.11.2026 in der vorhandenen HA-Installation installiert und im Beobachtungsmodus eingerichtet. Live geprüft: eigene Menüseite, vollständiger Einstellungsreiter, Speichern und Wiederladen der Konfiguration, Wetterquelle Dresden-Stadt sowie Menüposition direkt unter Strommanager. Ein automatischer Heizversuch wurde noch nicht durchgeführt.
+
+### Nachtregelung seit 0.1.4
+
+Die Nachttemperatur ist eine Einschaltschwelle. Ohne Unterschreitung bleibt die Midea aus. Der Fahrplan zeigt Nachtpausen und Nachheizphasen getrennt. Die Hysterese ist unter Einstellungen → Wunschtemperaturen konfigurierbar. Nach einem Neustart startet ein Nachheizzyklus nur bei tatsächlicher Unterschreitung; es wird kein laufender Nachtzyklus wiederhergestellt. Der Beginn des gemeinsamen morgendlichen Vorheizens und die Regelung tagsüber bleiben erhalten.
 
 ### Live-Prüfung 0.1.3
 

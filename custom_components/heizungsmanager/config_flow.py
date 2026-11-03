@@ -23,6 +23,7 @@ def schema(values):
     for key in ("weekday_start", "weekend_start", "night_start"):
         fields[vol.Required(key, default=values[key])] = selector.TimeSelector()
     for key, low, high, step in (("primary_temperature_weight", 1, 99, 1),
+                                ("night_reheat_hysteresis", 0.1, 1.0, 0.1),
                                 ("primary_temperature_offset", -3, 3, 0.1),
                                 ("secondary_temperature_offset", -3, 3, 0.1),
                                 ("temperature_smoothing_minutes", 0, 15, 1),

@@ -1,4 +1,4 @@
-import './heizungsmanager-card.js?v=0.1.3';
+import './heizungsmanager-card.js?v=0.1.4';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [
@@ -22,9 +22,10 @@ const SETTINGS = [
     {key:'weekend_start',label:'Samstag und Sonntag',type:'time'},
     {key:'night_start',label:'Nachtabsenkung täglich ab',type:'time'}
   ]},
-  {title:'Wunschtemperaturen',description:'Die Midea hält tagsüber die Komforttemperatur und nachts die Nachttemperatur.',fields:[
+  {title:'Wunschtemperaturen',description:'Tagsüber hält die Midea die Komforttemperatur. Nachts bleibt sie aus und heizt nur bei Unterschreitung nach.',fields:[
     {key:'comfort_temperature',label:'Komforttemperatur (°C)',type:'number',min:16,max:24,step:0.5},
-    {key:'night_temperature',label:'Nachttemperatur (°C)',type:'number',min:7,max:22,step:0.5}
+    {key:'night_temperature',label:'Nachttemperatur · Einschaltschwelle (°C)',type:'number',min:7,max:22,step:0.5,hint:'Nachts bleibt die Midea aus und startet erst unter diesem Raumwert.'},
+    {key:'night_reheat_hysteresis',label:'Nacht-Nachheizen · Hysterese (°C)',type:'number',min:0.1,max:1,step:0.1,hint:'Bei 18 °C und 0,3 °C Hysterese: Start unter 18 °C, aus ab 18,3 °C. Geräte-Sollwert während des kurzen Nachheizens liegt etwas höher.'}
   ]},
   {title:'Gemeinsames Aufheizen am Morgen',description:'Heizkörper und Midea heizen morgens gemeinsam. Danach hält die Midea die Temperatur.',fields:[
     {key:'max_preheat_minutes',label:'Maximale Vorheizzeit (Minuten)',type:'number',min:15,max:240,step:5,hint:'Obergrenze für den berechneten Heizbeginn vor der Komfortzeit.'},

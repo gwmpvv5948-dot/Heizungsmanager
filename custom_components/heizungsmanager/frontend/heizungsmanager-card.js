@@ -30,7 +30,7 @@ class HeizungsmanagerCard extends HTMLElement {
     const path = key => plan.map((p,i) => `${i?'L':'M'}${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(' ');
     const groups = [];
     plan.slice(0,-1).forEach((p,i) => {
-      const label = p.radiators ? 'Gemeinsam aufheizen' : p.phase === 'Nacht' ? 'Nacht · Midea' : 'Halten · Midea';
+      const label = p.radiators ? 'Gemeinsam aufheizen' : p.phase === 'Nacht' ? (p.heat_pump ? 'Nacht · Nachheizen' : 'Nacht · Midea aus') : 'Halten · Midea';
       const previous = groups.at(-1);
       if (previous?.label === label) { previous.end = plan[i+1].time; previous.last = i+1; }
       else groups.push({label, start:p.time, end:plan[i+1].time, first:i, last:i+1, reason:p.reason, radiators:p.radiators});
@@ -38,7 +38,7 @@ class HeizungsmanagerCard extends HTMLElement {
     const ticks = Array.from({length:5},(_,i) => min+(max-min)*i/4);
     const grid = ticks.map(v => `<line x1="${left}" x2="${width-16}" y1="${y(v)}" y2="${y(v)}" stroke="currentColor" opacity=".09"/><text x="4" y="${y(v)+4}" fill="currentColor" font-size="11">${v.toFixed(0)}°</text>`).join('');
     const times = plan.filter((_,i)=>i%24===0).map((p,i)=>`<text x="${x(i*24)}" y="220" text-anchor="middle" fill="currentColor" font-size="11">${clock(p.time)}</text>`).join('');
-    const bars = groups.map(g=>`<rect x="${x(g.first)}" y="193" width="${Math.max(1,x(g.last)-x(g.first)-1)}" height="9" rx="3" fill="${g.radiators?'#f4aa58':'#42bfa7'}"><title>${esc(g.label)} ${clock(g.start)}–${clock(g.end)}</title></rect>`).join('');
+    const bars = groups.map(g=>`<rect x="${x(g.first)}" y="193" width="${Math.max(1,x(g.last)-x(g.first)-1)}" height="9" rx="3" fill="${g.radiators?'#f4aa58':g.label==='Nacht · Midea aus'?'#65788b':'#42bfa7'}"><title>${esc(g.label)} ${clock(g.start)}–${clock(g.end)}</title></rect>`).join('');
     const banner = a.error ? `<div class="notice error">Steuerungsfehler: ${esc(a.error)}</div>` : '';
     const pause = a.window_open || a.window_unknown || a.manual_until || a.mode === 'Aus';
     const room = a.temperature_info;

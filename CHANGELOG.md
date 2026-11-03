@@ -1,5 +1,13 @@
 # Änderungen
 
+## 0.1.4 – 03.11.2026
+
+- Midea nachts aus; Nachheizen erst unter der Nachttemperatur.
+- Einstellbare Hysterese: standardmäßig unter 18 °C an, ab 18,3 °C wieder aus.
+- Nachtpausen und Nachheizphasen im 24-Stunden-Fahrplan getrennt sichtbar.
+- Gemeinsames morgendliches Vorheizen und Haltebetrieb tagsüber bleiben erhalten.
+- 30 Tests einschließlich Nacht-Ein-/Ausschaltung und Hysterese.
+
 ## 0.1.3 – 03.11.2026
 
 - Gemeinsame Raumtemperatur aus KNX und Ikea mit konfigurierbarer 75/25-Gewichtung.

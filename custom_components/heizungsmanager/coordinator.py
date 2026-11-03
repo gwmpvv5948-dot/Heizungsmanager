@@ -39,6 +39,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
         self.error = None
         self.last_save = 0
         self.room_temperature = RoomTemperature()
+        self.night_heat_active = False
 
     async def async_initialize(self):
         saved = await self.store.async_load() or {}
@@ -68,6 +69,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
         self.manual_until = None
         self.commands = {}
         self.previous = None
+        self.night_heat_active = False
         await self.async_tick()
 
     async def async_apply_options(self):
@@ -78,6 +80,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
             self.commands = {}
             self.previous = None
             self.room_temperature = RoomTemperature()
+            self.night_heat_active = False
             self.open_since = None
             self.forecast = []
             self.last_weather_request = 0
@@ -269,8 +272,9 @@ class HeatingCoordinator(DataUpdateCoordinator):
         else:
             self.previous = None
         forecast = self.forecast if self.forecast_updated and now.timestamp() - self.forecast_updated < 7200 else []
-        plan = make_plan(now, temp, outside, forecast, self.config, self.model) if temp is not None else []
+        plan = make_plan(now, temp, outside, forecast, self.config, self.model, self.night_heat_active) if temp is not None else []
         row = plan[0] if plan else None
+        self.night_heat_active = bool(row and row["phase"] == "Nacht" and row["heat_pump"])
         status = row["phase"] if row else "Raumsensor fehlt oder ist veraltet"
         reason = row["reason"] if row else "Keine belastbare Raumtemperatur; automatische Steuerung pausiert"
         if window_unknown:
@@ -289,7 +293,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
                 elif not window_open and self.manual_until is None and row:
                     # Remove radiator demand before handing over to the heat pump.
                     await self.command("radiators", "heat" if row["radiators"] else "off", row["target"])
-                    await self.command("heat_pump", "heat", row["target"])
+                    await self.command("heat_pump", "heat" if row["heat_pump"] else "off", row["control_target"])
             except Exception as err:
                 self.error = str(err)
                 _LOGGER.warning("Heizungsmanager: %s", err)

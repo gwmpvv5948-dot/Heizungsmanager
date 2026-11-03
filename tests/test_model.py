@@ -70,6 +70,22 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(self.model.pump_samples,1)
         self.assertEqual(self.model.radiator_samples,1)
 
+    def test_night_threshold_hysteresis(self):
+        self.assertFalse(m.night_reheat(18,18,False,.3))
+        self.assertTrue(m.night_reheat(17.9,18,False,.3))
+        self.assertTrue(m.night_reheat(18.1,18,True,.3))
+        self.assertFalse(m.night_reheat(18.3,18,True,.3))
+
+    def test_night_plan_shows_passive_cooling_then_reheat(self):
+        now = datetime(2026,11,4,23,tzinfo=TZ)
+        plan=m.make_plan(now,18.1,5,[],self.cfg,self.model)
+        self.assertFalse(plan[0]['heat_pump'])
+        self.assertEqual(plan[0]['pump_demand_estimate'],0)
+        self.assertLess(plan[1]['temperature'],18.1)
+        active=[p for p in plan if p['phase']=='Nacht' and p['heat_pump']]
+        self.assertTrue(active)
+        self.assertIn('Nachheizen',active[0]['reason'])
+
     def test_untrusted_numbers_and_saved_model(self):
         for value in ['nan','inf',None,{},102.5]:
             self.assertIsNone(m.finite(value,-30,45))
