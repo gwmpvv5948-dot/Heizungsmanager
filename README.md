@@ -22,7 +22,7 @@ Vorhandene Morgen- und Nachtzeiten sowie Komfort-/Nachttemperaturen werden über
 
 ## Räume
 
-Aktuell ist nur das Wohnzimmer eingerichtet. Arbeitszimmer, Alwin, Carla und Flur werden in der Raumauswahl als noch nicht eingerichtet angezeigt. Später lässt sich pro Raum eine weitere Instanz über Geräte & Dienste → Integration hinzufügen → Heizungsmanager anlegen. Jeder Raum erhält eigene Geräte, Wochenpläne, Betriebsart, Temperatursensoren, Lernwerte, Historie und temporäre Abweichung. Der gemeinsame Menüeintrag wechselt zwischen den eingerichteten Räumen.
+Wohnzimmer und Arbeitszimmer sind eingerichtet und im gemeinsamen Panel auswählbar. Alwin, Carla und Flur werden als noch nicht eingerichtet angezeigt. Später lässt sich pro Raum eine weitere Instanz über Geräte & Dienste → Integration hinzufügen → Heizungsmanager anlegen. Jeder Raum erhält eigene Geräte, Wochenpläne, Betriebsart, Temperatursensoren, Lernwerte, Historie und temporäre Abweichung. Der gemeinsame Menüeintrag wechselt zwischen den eingerichteten Räumen.
 
 Weitere Räume übernehmen keine Wohnzimmergeräte. Mindestens eine Wärmequelle muss zugeordnet werden; Midea und Fensterkontakt sind optional. In den Phasen dürfen nur vorhandene Wärmequellen freigegeben werden. Dieselbe Climate-Entität darf nicht von zwei Räumen gesteuert werden. Unterliegende Geräte hinter unterschiedlichen Regler-Entitäten müssen zusätzlich bei der Einrichtung auf doppelte Zuordnung geprüft werden.
 
@@ -57,3 +57,11 @@ node --check custom_components/heizungsmanager/frontend/heizungsmanager-card.js
 ```
 
 Die Tests verwenden HA-Grenzstellen als Doubles und schalten keine echten Geräte. Sie prüfen unter anderem Phasengrenzen, Quellenwahl, Migration, Wochenwechsel, Sommerzeit, Taktschutz, Sensorfehler, Schnelländerungen und Raumtrennung. `preview.html` zeigt synthetische Beispieldaten ohne Geräteverbindung.
+
+## Eingerichtetes Arbeitszimmer
+
+Seit 4. November 2026 ist das Arbeitszimmer als eigener HA-Eintrag eingerichtet, mit Automatik und eigenem Fahrplan/Einstellungen. Raumtemperatur: `sensor.nspanelaz_temperature`; Fensterkontakt: `binary_sensor.aqara_az_fenster`; Heizkörper-Regler: `climate.az_vtherm` (bestehender VTherm mit `climate.az_thermostat_mqtt` darunter); Wetter: `weather.dresden_stadt`. Keine Midea und kein zweiter Temperatursensor zugeordnet. Der primäre Sensor wird daher effektiv zu 100 % verwendet.
+
+Startplan: Mo–Fr Morgens 06:20, Tag 07:05, Abend 17:00, Nacht 22:00; Sa–So Morgens 08:00, Tag 08:45, Abend 17:00, Nacht 22:00. Zunächst 21 °C in den ersten drei Phasen und 18 °C nachts, jeweils ausschließlich Heizkörper. Dies sind veränderbare Startwerte. Bei der Einrichtung wurde der 21-°C-Sollwert am AZ-VTherm und dessen Heizbetrieb geprüft; die Fenster-Heizpause bleibt aktiv.
+
+[examples/arbeitszimmer.json](examples/arbeitszimmer.json) dokumentiert diesen Konfigurationsstand zur Einrichtung, ohne Zugangsdaten. Das ist eine Referenzdatei, kein automatischer Import und keine laufende Sicherung späterer HA-Änderungen. Die aktive Betriebsart wird separat im lokalen HA-Speicher gehalten. Der bestehende Wohnzimmerplan wird durch die Einrichtung nicht geändert.
