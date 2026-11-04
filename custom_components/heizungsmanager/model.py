@@ -91,6 +91,9 @@ def normalize_config(config):
     result = dict(config)
     room = result.setdefault("room_id", "wohnzimmer")
     result["room_name"] = ROOMS.get(room, room)
+    result.setdefault("pump_daily_energy_sensor", "sensor.tasmota_energy_today_2" if room == "wohnzimmer" else "")
+    result.setdefault("radiator_energy_sensor", {"wohnzimmer": "sensor.wz_verbrauch_heizung", "arbeitszimmer": "sensor.az_vtherm_energy"}.get(room, ""))
+    result.setdefault("radiator_energy_period", "daily" if room == "wohnzimmer" else "total")
     for kind, old in (("weekday", "weekday_start"), ("weekend", "weekend_start")):
         start = time.fromisoformat(config.get(old, "06:20:00" if kind == "weekday" else "08:00:00"))
         night = time.fromisoformat(config.get("night_start", "22:00:00"))

@@ -79,3 +79,10 @@ class PanelApiTests(IsolatedAsyncioTestCase):
         await ns['save_config'](hass,c,{'id':1,'entry_id':'wz','config':{'temperature_sensor':'sensor.temp'}})
         c.send_error.assert_not_called()
         self.assertEqual(c.send_result.call_args.args[1]['mode'],'Automatik')
+
+    async def test_power_sensor_is_rejected_as_energy_source(self):
+        hass,c=self.make()
+        hass.states.get=lambda entity:SimpleNamespace(attributes={'unit_of_measurement':'W' if entity=='sensor.power' else '°C'})
+        await ns['save_config'](hass,c,{'id':1,'entry_id':'wz','config':{'temperature_sensor':'sensor.temp','pump_daily_energy_sensor':'sensor.power'}})
+        self.assertEqual(c.send_error.call_args.args[1],'invalid_config')
+        hass.config_entries.async_update_entry.assert_not_called()

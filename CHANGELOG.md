@@ -1,3 +1,10 @@
+## 0.2.4
+
+- Verbrauch-heute-Kacheln je Raum mit gemeinsamer kWh-Skala: Midea-Stromzähler und separat gekennzeichnete VTherm-Heizkörper-Schätzung.
+- Midea-Leistung weiterhin separat in W; vorhandener Tasmota-kWh-Tageszähler statt unnötiger eigener Leistungsintegration.
+- Tagesverbrauch des kumulativen AZ-Energiezählers über lokale HA-Historie seit Mitternacht, mit Rücksetzungsbehandlung und Hinweisen bei fehlender Historie.
+- Energiequellen und Tages-/Gesamtzählerart je Raum in Einstellungen konfigurierbar.
+
 ## 0.2.3
 
 - Zuletzt gewählten Raum pro Browser merken und nach Seitenneuladen wiederherstellen.

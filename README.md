@@ -1,4 +1,4 @@
-# Heizungsmanager · 0.2.3
+# Heizungsmanager · 0.2.4
 
 Lokale Home-Assistant-Custom-Integration mit vier Heizphasen je Raum. Quellcode: [gwmpvv5948-dot/Heizungsmanager](https://github.com/gwmpvv5948-dot/Heizungsmanager). [Versionsübersicht](CHANGELOG.md).
 
@@ -52,7 +52,7 @@ Beobachten plant und lernt, sendet aber keine Befehle. Automatik steuert die zug
 
 ```sh
 python3 -m unittest discover -s tests
-node --test tests/test_equipment.mjs
+node --test tests/test_*.mjs
 node --check custom_components/heizungsmanager/frontend/panel.js
 node --check custom_components/heizungsmanager/frontend/heizungsmanager-card.js
 ```
@@ -74,3 +74,11 @@ Im Fahrplan zeigt jeder Raum kleine, ausschließlich lesende Gerätekacheln. Die
 Heizkörper zeigen den gemeldeten Wert von `number.<thermostat>_valve_closing_degree` als **Ventil-Schließgrad · Reglerwert**. Das ist eine Schließvorgabe, keine Messung der mechanischen Position. Öffnungs- und Schließvorgaben sind unterschiedliche Regelparameter; deshalb wird daraus keine vermeintlich gemessene Öffnung durch `100 − Schließgrad` berechnet. Siehe [Zigbee2MQTT TRVZB](https://www.zigbee2mqtt.io/devices/TRVZB.html#valve-closing-degree-numeric). Fehlende/unverfügbare Werte erscheinen als Strich, nicht als 0 %. Statusänderungen aktualisieren die Kacheln direkt über die HA-Zustände, unabhängig vom Planungsintervall.
 
 Die zuletzt erfolgreich gewählte Raumauswahl wird lokal im jeweiligen Browser gespeichert und nach Seitenneuladen oder erneutem Öffnen wiederhergestellt. Entfernte Räume werden dabei übersprungen; wenn Browser-Speicherung nicht verfügbar ist, bleibt die Raumauswahl weiterhin bedienbar. Die Präferenz wird nicht zwischen Geräten synchronisiert.
+
+## Verbrauch heute (0.2.4)
+
+Jeder Raum zeigt unter den Gerätekacheln den Verbrauch seit Mitternacht in der HA-Zeitzone. Die Midea verwendet ihren vorhandenen kWh-Tageszähler `sensor.tasmota_energy_today_2` und zeigt daneben die aktuelle Leistung aus `sensor.tasmota_energy_power_2` in W. Leistung wird nicht mit Energie verwechselt oder als kWh behandelt. Eine eigene Integration der Leistung ist unnötig, weil Tasmota bereits einen Energiezähler liefert.
+
+Wohnzimmer-Heizkörper: `sensor.wz_verbrauch_heizung` (Tageszähler). Arbeitszimmer: `sensor.az_vtherm_energy` (fortlaufender Zähler). Für fortlaufende Zähler liest das Panel über die lokale HA-History-API den Zustand zu Tagesbeginn und die Änderungen seitdem; beobachtete Rücksetzungen werden berücksichtigt. Die Historie wird höchstens einmal pro Minute angefragt, aktuelle Zählerstände aktualisieren die Anzeige direkt. Wh und MWh werden in kWh umgerechnet. Ohne gültigen Tagesbeginn-Zählerstand oder bei fehlender Historie wird kein Wert erfunden; Historielücken werden kenntlich gemacht. Es wird keine neue Datenbank angelegt und kein Utility Meter erstellt.
+
+Die Quellen und die Art des Heizkörper-Zählers (Tageszähler/fortlaufend) lassen sich je Raum unter Einstellungen → Verbrauchsanzeige ändern. Leere optionale Quellen blenden die jeweilige Verbrauchskachel aus. Die verwendeten Heizkörperwerte sind VTherm-Schätzungen, keine Wärmemengenzähler. Midea-Strom und Heizkörper-Schätzenergie sind unterschiedliche Datengrundlagen: die gemeinsame kWh-Skala ist eine zeitlich einheitliche Übersicht, kein direkter Effizienz-, COP- oder Kostenvergleich; die Werte werden nicht addiert. Siehe [VTherm-Referenz](https://www.versatile-thermostat.org/en/docs/reference/).

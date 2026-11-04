@@ -1,4 +1,4 @@
-import './heizungsmanager-card.js?v=0.2.3';
+import './heizungsmanager-card.js?v=0.2.4';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [
@@ -8,6 +8,11 @@ const SETTINGS = [
     {key:'radiators',label:'Heizkörper-Regler (optional)',domain:'climate',optional:true,hint:'WZ VTherm steuert weiterhin WZ1 und WZ2.'},
     {key:'weather',label:'Wetterentität für Dresden',domain:'weather',hint:'Der Standort wird in der Wetterintegration festgelegt. Stündliche Vorhersage bevorzugt.'},
     {key:'power_sensor',label:'Midea-Leistung (optional)',domain:'sensor',deviceClass:'power',optional:true,hint:'Gemessene elektrische Leistung in W oder kW. Kein geschätzter VTherm-Energiezähler.'}
+  ]},
+  {title:'Verbrauchsanzeige',description:'Vergleich für heute seit 00:00. Midea-Strommessung und VTherm-Heizenergie-Schätzung werden getrennt gekennzeichnet und nicht addiert. Keine Wirkungsgrad- oder Kostenberechnung.',fields:[
+    {key:'pump_daily_energy_sensor',label:'Midea · Energie heute (optional)',domain:'sensor',deviceClass:'energy',optional:true,hint:'Tageszähler in kWh, z. B. tasmota_energy_today_2. Der Leistungssensor in W bleibt für die aktuelle Leistung zuständig.'},
+    {key:'radiator_energy_sensor',label:'Heizkörper · Energiezähler (optional)',domain:'sensor',deviceClass:'energy',optional:true},
+    {key:'radiator_energy_period',label:'Art des Heizkörper-Zählers',options:[['daily','Tageszähler · Rücksetzung um Mitternacht'],['total','Fortlaufender Zähler · Tagesverbrauch aus HA-Historie']]}
   ]},
   {title:'Gemeinsame Raumtemperatur',description:'KNX und Ikea liefern gemeinsam die angezeigte und intern verwendete Raumtemperatur. Ausgefallene oder veraltete Quellen werden ausgeschlossen; der andere Sensor übernimmt dann zu 100 %.',fields:[
     {key:'temperature_sensor',label:'Primärer Temperatursensor · KNX',domain:'sensor',deviceClass:'temperature',hint:'Standard: wz_temp. Nicht den berechneten Raumtemperatursensor als Eingabe wählen.'},

@@ -20,7 +20,7 @@ def payload(hass, coordinator):
         existing = next((item for item in hass.data.get(DOMAIN, {}).values()
                          if hasattr(item, "entry") and item.config.get("room_id", "wohnzimmer") == room_id), None)
         rooms.append({"room_id": room_id, "name": name, "entry_id": existing.entry.entry_id if existing else None})
-    return {"rooms": rooms, "config": coordinator.config, "mode": coordinator.mode, "version": "0.2.3",
+    return {"rooms": rooms, "config": coordinator.config, "mode": coordinator.mode, "version": "0.2.4",
         "plan_entity": registry.async_get_entity_id("sensor", DOMAIN, f"{entry_id}_plan"),
         "mode_entity": registry.async_get_entity_id("select", DOMAIN, f"{entry_id}_mode")}
 
@@ -81,13 +81,13 @@ async def save_config(hass, connection, msg):
         return
     try:
         submitted = dict(msg["config"])
-        for key in ("power_sensor", "secondary_temperature_sensor", "heat_pump", "radiators", "window_sensor"):
+        for key in ("power_sensor", "secondary_temperature_sensor", "heat_pump", "radiators", "window_sensor", "pump_daily_energy_sensor", "radiator_energy_sensor"):
             if not submitted.get(key):
                 submitted.pop(key, None)
         config = schema(coordinator.config)(submitted)
         config.setdefault("power_sensor", "")
         config.setdefault("secondary_temperature_sensor", "")
-        for key in ("heat_pump", "radiators", "window_sensor"):
+        for key in ("heat_pump", "radiators", "window_sensor", "pump_daily_energy_sensor", "radiator_energy_sensor"):
             config.setdefault(key, "")
         if config.get("room_id", "wohnzimmer") != coordinator.config.get("room_id", "wohnzimmer"):
             raise ValueError("Der Raum einer bestehenden Einrichtung kann nicht geändert werden.")
@@ -106,9 +106,13 @@ async def save_config(hass, connection, msg):
                 "missing_heater": "Mindestens eine Wärmequelle zuordnen.",
                 "missing_source": "Eine gewählte Phasen-Wärmequelle ist diesem Raum nicht zugeordnet."}
             raise ValueError(messages[error])
-        for key in ("temperature_sensor", "secondary_temperature_sensor", "window_sensor", "heat_pump", "radiators", "weather", "power_sensor"):
+        for key in ("temperature_sensor", "secondary_temperature_sensor", "window_sensor", "heat_pump", "radiators", "weather", "power_sensor", "pump_daily_energy_sensor", "radiator_energy_sensor"):
             if config.get(key) and hass.states.get(config[key]) is None:
                 raise ValueError(f"Entität nicht gefunden: {config[key]}")
+        for key in ("pump_daily_energy_sensor", "radiator_energy_sensor"):
+            state = hass.states.get(config[key]) if config.get(key) else None
+            if state and state.attributes.get("unit_of_measurement") not in ("Wh", "kWh", "MWh"):
+                raise ValueError("Verbrauchssensoren müssen Energie in Wh, kWh oder MWh liefern, keine Leistung in W.")
         for key in ("temperature_sensor", "secondary_temperature_sensor"):
             sensor = hass.states.get(config[key]) if config.get(key) else None
             if sensor and sensor.attributes.get("unit_of_measurement") != "°C":

@@ -25,6 +25,10 @@ def schema(values):
         selector.EntitySelectorConfig(domain="sensor", device_class="power"))
     fields[vol.Optional("secondary_temperature_sensor", description={"suggested_value": values.get("secondary_temperature_sensor", "")})] = selector.EntitySelector(
         selector.EntitySelectorConfig(domain="sensor", device_class="temperature"))
+    for key in ("pump_daily_energy_sensor", "radiator_energy_sensor"):
+        fields[vol.Optional(key, description={"suggested_value": values.get(key, "")})] = selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="sensor", device_class="energy"))
+    fields[vol.Required("radiator_energy_period", default=values["radiator_energy_period"])] = vol.In({"daily": "Tageszähler", "total": "Fortlaufender Zähler"})
     for kind in ("weekday", "weekend"):
         for phase, _ in PHASES:
             prefix = f"{kind}_{phase}_"
@@ -79,7 +83,7 @@ class HeizungsmanagerFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             user_input["room_id"] = self._room_id
-            for key in ("heat_pump", "radiators", "window_sensor", "power_sensor", "secondary_temperature_sensor"):
+            for key in ("heat_pump", "radiators", "window_sensor", "power_sensor", "secondary_temperature_sensor", "pump_daily_energy_sensor", "radiator_energy_sensor"):
                 user_input.setdefault(key, "")
             error = validate(user_input)
             if error is None:
@@ -95,7 +99,7 @@ class HeizungsmanagerFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors["base"] = error
         values = {**DEFAULTS, "room_id": self._room_id}
         if self._room_id != "wohnzimmer":
-            for key in ("temperature_sensor", "secondary_temperature_sensor", "window_sensor", "heat_pump", "radiators", "power_sensor"):
+            for key in ("temperature_sensor", "secondary_temperature_sensor", "window_sensor", "heat_pump", "radiators", "power_sensor", "pump_daily_energy_sensor", "radiator_energy_sensor"):
                 values[key] = ""
             values = normalize_config(values)
             for kind in ("weekday", "weekend"):
@@ -123,7 +127,7 @@ class HeizungsmanagerOptions(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         errors = {}
         if user_input is not None:
-            for key in ("heat_pump", "radiators", "window_sensor", "power_sensor", "secondary_temperature_sensor"):
+            for key in ("heat_pump", "radiators", "window_sensor", "power_sensor", "secondary_temperature_sensor", "pump_daily_energy_sensor", "radiator_energy_sensor"):
                 user_input.setdefault(key, "")
             error = validate(user_input)
             if error is None:

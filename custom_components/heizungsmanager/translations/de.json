@@ -48,7 +48,10 @@
           "weekend_evening_sources": "Sa–So · Abend · Wärmequellen: heat_pump / radiators / both / off",
           "weekend_night_start": "Sa–So · Nacht · Startzeit",
           "weekend_night_temperature": "Sa–So · Nacht · Zieltemperatur (°C)",
-          "weekend_night_sources": "Sa–So · Nacht · Wärmequellen: heat_pump / radiators / both / off"
+          "weekend_night_sources": "Sa–So · Nacht · Wärmequellen: heat_pump / radiators / both / off",
+          "pump_daily_energy_sensor": "Midea: Energie-Tageszähler (optional)",
+          "radiator_energy_sensor": "Heizkörper: Energiezähler (optional)",
+          "radiator_energy_period": "Heizkörper-Zählerart"
         }
       },
       "room": {
@@ -123,7 +126,10 @@
           "weekend_evening_sources": "Sa–So · Abend · Wärmequellen: heat_pump / radiators / both / off",
           "weekend_night_start": "Sa–So · Nacht · Startzeit",
           "weekend_night_temperature": "Sa–So · Nacht · Zieltemperatur (°C)",
-          "weekend_night_sources": "Sa–So · Nacht · Wärmequellen: heat_pump / radiators / both / off"
+          "weekend_night_sources": "Sa–So · Nacht · Wärmequellen: heat_pump / radiators / both / off",
+          "pump_daily_energy_sensor": "Midea: Energie-Tageszähler (optional)",
+          "radiator_energy_sensor": "Heizkörper: Energiezähler (optional)",
+          "radiator_energy_period": "Heizkörper-Zählerart"
         }
       }
     },
