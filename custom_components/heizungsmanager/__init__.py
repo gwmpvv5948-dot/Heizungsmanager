@@ -26,7 +26,7 @@ async def async_setup_entry(hass, entry):
     if not domain_data.get("panel_registered"):
         await async_register_panel(hass, frontend_url_path="heizungsmanager",
             webcomponent_name="heizungsmanager-panel", sidebar_title="Heizungsmanager",
-            sidebar_icon="mdi:heat-pump", module_url="/heizungsmanager-static/panel.js?v=0.2.7",
+            sidebar_icon="mdi:heat-pump", module_url="/heizungsmanager-static/panel.js?v=0.2.8",
             config={"entry_id": entry.entry_id}, require_admin=True)
         domain_data["panel_registered"] = True
     entry.async_on_unload(entry.add_update_listener(async_options_updated))
@@ -48,7 +48,7 @@ async def async_unload_entry(hass, entry):
         if remaining:
             await async_register_panel(hass, frontend_url_path="heizungsmanager",
                 webcomponent_name="heizungsmanager-panel", sidebar_title="Heizungsmanager",
-                sidebar_icon="mdi:heat-pump", module_url="/heizungsmanager-static/panel.js?v=0.2.7",
+                sidebar_icon="mdi:heat-pump", module_url="/heizungsmanager-static/panel.js?v=0.2.8",
                 config={"entry_id": remaining[0].entry.entry_id}, require_admin=True)
             hass.data[DOMAIN]["panel_registered"] = True
         return True

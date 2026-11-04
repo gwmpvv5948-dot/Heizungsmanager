@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {equipmentStatus} from '../custom_components/heizungsmanager/frontend/equipment.js';
+import {equipmentStatus,swingLabel} from '../custom_components/heizungsmanager/frontend/equipment.js';
 const state=(value,attributes={})=>({state:value,attributes});
 const fixtures=()=>({
   'climate.wz_vtherm':state('heat',{vtherm_over_climate:{underlying_entities:['climate.wz1_thermostat_mqtt','climate.wz2_thermostat_mqtt']}}),
@@ -74,4 +74,22 @@ test('Midea tile power converts kW and reacts independently of plan changes',()=
  assert.notEqual(JSON.stringify(equipmentStatus(states,config)),before);
  states['sensor.power']=state('unavailable',{unit_of_measurement:'W'});
  assert.equal(equipmentStatus(states,config)[0].watts,null);
+});
+
+test('oscillation offers actual device modes and preserves reported values',()=>{
+ const states=fixtures();states['climate.midea'].attributes.swing_mode='both';states['climate.midea'].attributes.swing_modes=['off','vertical','horizontal','both','both',null];
+ states['climate.wz_midea_ac'].attributes.swing_modes=['on'];
+ const tile=equipmentStatus(states,{heat_pump:'climate.wz_midea_ac'})[0];
+ assert.deepEqual(tile.swingModes,['off','vertical','horizontal','both']);assert.equal(tile.swingValue,'both');assert.equal(tile.swing,'Vertikal + horizontal');
+ assert.equal(swingLabel('custom-angle'),'custom-angle');
+ states['climate.midea'].state='unavailable';
+ const unavailable=equipmentStatus(states,{heat_pump:'climate.wz_midea_ac'})[0];
+ assert.deepEqual(unavailable.swingModes,[]);assert.equal(unavailable.swing,'Nicht gemeldet');
+});
+test('swing updates change live status independently of plan or fan',()=>{
+ const states=fixtures(),config={heat_pump:'climate.wz_midea_ac'};
+ states['climate.midea'].attributes.swing_modes=['off','vertical'];states['climate.midea'].attributes.swing_mode='off';
+ const before=JSON.stringify(equipmentStatus(states,config));states['climate.midea'].attributes.swing_mode='vertical';
+ const tile=equipmentStatus(states,config)[0];assert.notEqual(JSON.stringify(equipmentStatus(states,config)),before);
+ assert.equal(tile.fanValue,'low');assert.equal(tile.target,21.5);assert.equal(tile.mode,'Heizen');
 });

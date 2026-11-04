@@ -1,4 +1,4 @@
-# Heizungsmanager · 0.2.7
+# Heizungsmanager · 0.2.8
 
 Lokale Home-Assistant-Custom-Integration mit vier Heizphasen je Raum. Quellcode: [gwmpvv5948-dot/Heizungsmanager](https://github.com/gwmpvv5948-dot/Heizungsmanager). [Versionsübersicht](CHANGELOG.md).
 
@@ -96,3 +96,7 @@ Die Midea-Kachel zeigt die aktuelle gemessene elektrische Leistung aus dem je Ra
 Je Raum ist unter Einstellungen → Midea · Sollwertkorrektur ein positiver Geräte-Offset einstellbar (0–3 °C, 0,5-°C-Schritte; Standard +0,5 °C). Bei 21 °C Raumziel erhält der Midea-Regler 21,5 °C als Geräte-Soll. Das gilt für alle vier Phasen und Schnelländerungen. Heizkörper erhalten weiterhin das ursprüngliche Raumziel. Bei ausgeschlossener Midea bleibt sie ausgeschaltet.
 
 Die Schaltentscheidung, Hysterese und Midea-Übertemperaturgrenze beziehen sich weiterhin auf das Raumziel. Der Offset verschiebt keine Schaltschwelle und ist kein höheres Raumziel. Die Prognose weist den Midea-Geräte-Sollwert aus, setzt die höhere Gerätevorgabe aber nicht mit einer entsprechend höheren gewünschten Raumtemperatur oder pauschal zusätzlicher Heizleistung gleich; Heizbeiträge werden weiter aus realen Daten gelernt. Die bisherige Temperaturbegrenzung und Rundung auf die Geräteschrittweite bleibt aktiv. Die Midea-Kachel zeigt tatsächliches Geräte-Soll, Raumziel und Offset getrennt. Wert 0 deaktiviert den Ausgleich.
+
+## Oszillationsart ab 0.2.8
+
+In der Midea-Kachel ist neben dem Lüftermodus auch die Oszillationsart auswählbar. Das Dropdown übernimmt ausschließlich `swing_modes` des physischen Geräts und zeigt dessen gemeldeten `swing_mode`. Die Auswahl sendet nur `climate.set_swing_mode` mit der gewählten Option; Lüftermodus, HVAC-Modus und Geräte-/Raumsoll werden dabei nicht verändert. Unbekannte Modusbezeichnungen werden unverändert angezeigt, bekannte Modi wie Aus/Vertikal/Horizontal/Beide übersetzt. Bei nicht verfügbarem Gerät oder fehlenden unterstützten Schwenkmodi ist die Auswahl deaktiviert. Live-Updates reißen ein fokussiertes Dropdown nicht ab; Fehler erscheinen in der Kachel.

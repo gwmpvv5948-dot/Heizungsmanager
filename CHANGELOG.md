@@ -1,3 +1,9 @@
+## 0.2.8
+
+- Oszillationsart direkt in der Midea-Kachel auswählbar, mit den vom physischen Gerät unterstützten Modi.
+- Gezielt `set_swing_mode` senden und aktuellen gemeldeten Modus anzeigen; übrige Heizungs- und Lüftereinstellungen beibehalten.
+- Gemeinsame Behandlung von Verfügbarkeit, Fokus, Anfragen und Fehlern für beide Geräte-Dropdowns.
+
 ## 0.2.7
 
 - Einstellbarer Midea-Geräte-Sollwert-Offset je Raum (Standard +0,5 °C, 0–3 °C).
