@@ -72,3 +72,10 @@ class PanelApiTests(IsolatedAsyncioTestCase):
         await ns['set_override'](hass,c,{'id':1,'entry_id':'wz','action':'clear'})
         coordinator.async_set_override.assert_awaited_once_with(None,'2h')
         self.assertIsNone(c.send_result.call_args.args[1]['override'])
+
+    async def test_save_reports_preserved_automatic_mode(self):
+        hass,c=self.make()
+        hass.data['heizungsmanager']['wz'].mode='Automatik'
+        await ns['save_config'](hass,c,{'id':1,'entry_id':'wz','config':{'temperature_sensor':'sensor.temp'}})
+        c.send_error.assert_not_called()
+        self.assertEqual(c.send_result.call_args.args[1]['mode'],'Automatik')

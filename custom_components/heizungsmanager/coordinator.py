@@ -45,8 +45,9 @@ class HeatingCoordinator(DataUpdateCoordinator):
     async def async_initialize(self):
         saved = await self.store.async_load() or {}
         self.model = ThermalModel.restore(saved.get("model", {}))
-        # Deliberately never restore automatic control after restart/reload.
-        self.mode = "Beobachten"
+        # New installations start in observation; an explicit selection survives restart.
+        mode = saved.get("mode")
+        self.mode = mode if mode in ("Beobachten", "Automatik", "Aus") else "Beobachten"
         self.history = saved.get("history", [])[-144:]
         restored = saved.get("override")
         if isinstance(restored, dict) and finite(restored.get("temperature"), 16, 24) is not None and finite(restored.get("until"), 0, 9999999999) is not None:
@@ -63,7 +64,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
         await self.async_save()
 
     async def async_save(self):
-        await self.store.async_save({"model": self.model.dump(), "history": self.history[-144:], "override": self.override})
+        await self.store.async_save({"model": self.model.dump(), "history": self.history[-144:], "override": self.override, "mode": self.mode})
 
     async def async_set_override(self, temperature=None, duration="2h"):
         if temperature is not None:
@@ -88,17 +89,20 @@ class HeatingCoordinator(DataUpdateCoordinator):
         self.hass.async_create_task(self.async_tick())
 
     async def async_set_mode(self, mode):
-        self.mode = mode
-        self.manual_until = None
-        self.commands = {}
-        self.previous = None
-        self.pump_heat_active = False
-        await self.async_tick()
+        if mode not in ("Beobachten", "Automatik", "Aus"):
+            raise ValueError("Ungültige Betriebsart")
+        async with self.lock:
+            self.mode = mode
+            self.manual_until = None
+            self.commands = {}
+            self.previous = None
+            self.pump_heat_active = False
+            await self._tick()
+            await self.async_save()
 
     async def async_apply_options(self):
         async with self.lock:
             self.config = normalize_config({**DEFAULTS, **self.entry.data, **self.entry.options})
-            self.mode = "Beobachten"
             self.manual_until = None
             self.commands = {}
             self.previous = None

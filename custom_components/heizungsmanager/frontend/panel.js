@@ -1,4 +1,4 @@
-import './heizungsmanager-card.js?v=0.2.0';
+import './heizungsmanager-card.js?v=0.2.1';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [
@@ -94,7 +94,7 @@ class HeizungsmanagerPanel extends HTMLElement {
       card.hass=this._hass; content.append(card);
     } else {
       const mode=this._hass.states[this.settings.mode_entity]?.state || this.settings.mode;
-      content.innerHTML=`<p class="intro">Alle Einstellungen werden lokal in Home Assistant gespeichert.</p><section class="section operation"><label for="operation-mode">Betriebsart</label><select id="operation-mode">${['Beobachten','Automatik','Aus'].map(v=>`<option ${mode===v?'selected':''}>${v}</option>`).join('')}</select><div id="mode-message">Beobachten sendet keine Heizbefehle. Automatik übernimmt die Regler. Aus schaltet beide aus.</div></section><form><div class="notice">Beim Speichern wechselt der Manager in den Beobachtungsmodus. Bereits gesetzte Gerätezustände bleiben bestehen. Anschließend kann die Automatik wieder aktiviert werden.</div>${SETTINGS.map(group=>`<section class="section"><h2>${escapeHTML(group.title)}</h2><p class="intro">${escapeHTML(group.description)}</p>${group.phaseLayout?Array.from({length:4},(_,i)=>`<fieldset class="phase-row"><legend>${['Morgens','Tag','Abend','Nacht'][i]}</legend><div class="fields phase-fields">${group.fields.slice(i*3,i*3+3).map(field=>this.field(field)).join('')}</div></fieldset>`).join(''):`<div class="fields">${group.fields.map(field=>this.field(field)).join('')}</div>`}</section>`).join('')}<section class="section"><h2>Lokales Lernen und Planung</h2><div class="readonly">Berechnung alle <strong>30 Sekunden</strong>, Fahrplan über <strong>24 Stunden</strong> mit <strong>10-Minuten-Schritten</strong>.<br>Wärmeverlust sowie Heizbeiträge von Midea und Heizkörpern werden aus geeigneten getrennten Betriebsphasen gelernt. Gemeinsame Phasen werden nicht zur Trennung der Heizbeiträge verwendet.<br>Beim HA-Neustart startet diese Version im Beobachtungsmodus. Wetterabruf ggf. online; Planung und Lernen lokal.<br>Kein zusätzlicher Frostschutz im Modus Aus. Bestehende VTherm-Schutzfunktionen bleiben geräteseitig bestehen.</div></section><div class="actions"><button class="save" type="submit">Einstellungen speichern</button><button class="reset" type="button">Änderungen verwerfen</button><span class="feedback" role="status">${this._dirty?'Ungespeicherte Änderungen':''}</span></div></form>`;
+      content.innerHTML=`<p class="intro">Alle Einstellungen werden lokal in Home Assistant gespeichert.</p><section class="section operation"><label for="operation-mode">Betriebsart</label><select id="operation-mode">${['Beobachten','Automatik','Aus'].map(v=>`<option ${mode===v?'selected':''}>${v}</option>`).join('')}</select><div id="mode-message">Beobachten sendet keine Heizbefehle. Automatik übernimmt die Regler. Aus schaltet beide aus.</div></section><form><div class="notice">Die gewählte Betriebsart bleibt beim Speichern und nach HA-Neustarts erhalten. In Automatik werden gespeicherte Änderungen direkt für die Regelung verwendet.</div>${SETTINGS.map(group=>`<section class="section"><h2>${escapeHTML(group.title)}</h2><p class="intro">${escapeHTML(group.description)}</p>${group.phaseLayout?Array.from({length:4},(_,i)=>`<fieldset class="phase-row"><legend>${['Morgens','Tag','Abend','Nacht'][i]}</legend><div class="fields phase-fields">${group.fields.slice(i*3,i*3+3).map(field=>this.field(field)).join('')}</div></fieldset>`).join(''):`<div class="fields">${group.fields.map(field=>this.field(field)).join('')}</div>`}</section>`).join('')}<section class="section"><h2>Lokales Lernen und Planung</h2><div class="readonly">Berechnung alle <strong>30 Sekunden</strong>, Fahrplan über <strong>24 Stunden</strong> mit <strong>10-Minuten-Schritten</strong>.<br>Wärmeverlust sowie Heizbeiträge von Midea und Heizkörpern werden aus geeigneten getrennten Betriebsphasen gelernt. Gemeinsame Phasen werden nicht zur Trennung der Heizbeiträge verwendet.<br>Nach einem HA-Neustart wird die zuletzt gewählte Betriebsart wiederhergestellt. Wetterabruf ggf. online; Planung und Lernen lokal.<br>Kein zusätzlicher Frostschutz im Modus Aus. Bestehende VTherm-Schutzfunktionen bleiben geräteseitig bestehen.</div></section><div class="actions"><button class="save" type="submit">Einstellungen speichern</button><button class="reset" type="button">Änderungen verwerfen</button><span class="feedback" role="status">${this._dirty?'Ungespeicherte Änderungen':''}</span></div></form>`;
       const form=content.querySelector('form');
       form.addEventListener('input',event=>{
         const field=event.target;
@@ -123,10 +123,10 @@ class HeizungsmanagerPanel extends HTMLElement {
     const config={...this.draft};
     for(const key of Object.keys(config)) if(key.endsWith('_start') && typeof config[key]==='string' && config[key].length===5) config[key]+=':00';
     try {
-      await this._hass.callWS({type:'heizungsmanager/save_config',entry_id:this.entryId,config});
-      this.settings.config={...config};this.settings.mode='Beobachten';this.draft={...config};this._dirty=false;
-      this.shadowRoot.querySelector('#operation-mode').value='Beobachten';
-      feedback.textContent='Gespeichert. Der Manager ist im Beobachtungsmodus.';
+      const result=await this._hass.callWS({type:'heizungsmanager/save_config',entry_id:this.entryId,config});
+      this.settings.config={...config};this.settings.mode=result.mode;this.draft={...config};this._dirty=false;
+      this.shadowRoot.querySelector('#operation-mode').value=result.mode;
+      feedback.textContent=`Gespeichert. Betriebsart ${result.mode} bleibt aktiv.`;
     } catch(err) {feedback.classList.add('error');feedback.textContent=err.message || String(err);}
     finally {button.disabled=false;}
   }

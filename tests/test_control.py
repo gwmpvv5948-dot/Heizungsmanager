@@ -6,7 +6,7 @@ import types
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 ROOT = Path(__file__).resolve().parents[1] / 'custom_components/heizungsmanager'
 NOW = datetime(2026,11,4,12,0,tzinfo=timezone.utc)
@@ -278,6 +278,37 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.c.data['error'])
         self.assertTrue(self.c.data['plan'][0]['radiators'])
         self.assertFalse(any(call.args[2]['entity_id']=='climate.wz_midea_ac' for call in self.service.await_args_list))
+
+    async def test_selected_mode_is_saved_immediately(self):
+        with patch.object(Store, 'async_save', new_callable=AsyncMock) as saved:
+            await self.c.async_set_mode('Automatik')
+            self.assertEqual(saved.call_args.args[0]['mode'],'Automatik')
+            await self.c.async_set_mode('Aus')
+            self.assertEqual(saved.call_args.args[0]['mode'],'Aus')
+
+    async def test_saved_modes_restore_after_restart(self):
+        for mode in ('Automatik','Aus','Beobachten'):
+            with self.subTest(mode=mode), patch.object(Store,'async_load',new=AsyncMock(return_value={'mode':mode})):
+                await self.c.async_initialize()
+                self.assertEqual(self.c.mode,mode)
+                self.assertEqual(self.c.data['mode'],mode)
+
+    async def test_missing_or_invalid_saved_mode_starts_observing(self):
+        for mode in (None,'invalid',{},1):
+            with self.subTest(mode=mode), patch.object(Store,'async_load',new=AsyncMock(return_value={'mode':mode})):
+                await self.c.async_initialize()
+                self.assertEqual(self.c.mode,'Beobachten')
+
+    async def test_saving_options_preserves_selected_mode(self):
+        for mode in ('Automatik','Aus','Beobachten'):
+            self.c.mode=mode
+            await self.c.async_apply_options()
+            self.assertEqual(self.c.mode,mode)
+            self.assertEqual(self.c.data['mode'],mode)
+
+    async def test_invalid_mode_cannot_change_state(self):
+        with self.assertRaises(ValueError):await self.c.async_set_mode('invalid')
+        self.assertEqual(self.c.mode,'Beobachten')
 
     async def test_failed_first_stop_still_attempts_other_device(self):
         for key in ('climate.wz_midea_ac','climate.wz_vtherm'): self.states[key].state='heat'

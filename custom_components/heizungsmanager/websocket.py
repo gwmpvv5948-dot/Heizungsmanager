@@ -20,7 +20,7 @@ def payload(hass, coordinator):
         existing = next((item for item in hass.data.get(DOMAIN, {}).values()
                          if hasattr(item, "entry") and item.config.get("room_id", "wohnzimmer") == room_id), None)
         rooms.append({"room_id": room_id, "name": name, "entry_id": existing.entry.entry_id if existing else None})
-    return {"rooms": rooms, "config": coordinator.config, "mode": coordinator.mode, "version": "0.2.0",
+    return {"rooms": rooms, "config": coordinator.config, "mode": coordinator.mode, "version": "0.2.1",
         "plan_entity": registry.async_get_entity_id("sensor", DOMAIN, f"{entry_id}_plan"),
         "mode_entity": registry.async_get_entity_id("select", DOMAIN, f"{entry_id}_mode")}
 
@@ -119,5 +119,5 @@ async def save_config(hass, connection, msg):
         connection.send_error(msg["id"], "invalid_config", str(err))
         return
     hass.config_entries.async_update_entry(coordinator.entry, options=config)
-    # The entry listener applies settings and returns to observation mode.
-    connection.send_result(msg["id"], {"saved": True, "mode": "Beobachten"})
+    # The entry listener applies settings while preserving the selected mode.
+    connection.send_result(msg["id"], {"saved": True, "mode": coordinator.mode})

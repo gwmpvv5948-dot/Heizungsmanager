@@ -1,3 +1,9 @@
+## 0.2.1
+
+- Gewählte Betriebsart sofort je Raum speichern und nach HA-Neustart wiederherstellen.
+- Einstellungen speichern behält die Betriebsart bei; Anzeige und API melden den erhaltenen Modus.
+- Neue Einrichtungen ohne gespeicherte Betriebsart starten weiterhin in Beobachten.
+
 ## 0.2.0
 
 - Vier feste Phasen je Raum und Tagesgruppe: Morgens, Tag, Abend, Nacht; jeweils Startzeit, Zieltemperatur und Wärmequellen einstellbar.

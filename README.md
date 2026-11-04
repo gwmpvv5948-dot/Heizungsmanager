@@ -1,4 +1,4 @@
-# Heizungsmanager · 0.2.0
+# Heizungsmanager · 0.2.1
 
 Lokale Home-Assistant-Custom-Integration mit vier Heizphasen je Raum. Quellcode: [gwmpvv5948-dot/Heizungsmanager](https://github.com/gwmpvv5948-dot/Heizungsmanager). [Versionsübersicht](CHANGELOG.md).
 
@@ -44,7 +44,7 @@ Dies begrenzt Schaltbefehle des Managers. Verdichterzyklen innerhalb einer Freig
 
 Schnelländerungen gelten eine oder zwei Stunden oder bis zum nächsten der vier Phasenwechsel. Sie ändern nur die Zieltemperatur, nicht die erlaubten Wärmequellen. Danach gilt automatisch wieder der Plan.
 
-Beobachten plant und lernt, sendet aber keine Befehle. Automatik steuert die zugeordneten Quellen. Aus schaltet diese aus und bietet keinen zusätzlichen Frostschutz. Nach Neustart oder Speichern startet der Manager im Beobachtungsmodus. Manuelle Geräteänderungen pausieren die Automatik für die konfigurierte Zeit.
+Beobachten plant und lernt, sendet aber keine Befehle. Automatik steuert die zugeordneten Quellen. Aus schaltet diese aus und bietet keinen zusätzlichen Frostschutz. Die ausdrücklich gewählte Betriebsart wird sofort je Raum gespeichert und nach Neustarts wiederhergestellt. Einstellungen speichern behält die Betriebsart bei; in Automatik wirken neue Einstellungen direkt. Nur eine neue Einrichtung ohne gespeicherte Betriebsart startet in Beobachten. Manuelle Geräteänderungen pausieren die Automatik für die konfigurierte Zeit.
 
 ## Installation und Prüfung
 
