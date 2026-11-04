@@ -4,6 +4,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import callback
 from homeassistant.helpers import entity_registry as er
 from .const import DOMAIN
+from .model import ROOMS
 from .config_flow import schema, validate
 
 
@@ -14,7 +15,12 @@ def find_coordinator(hass, msg):
 def payload(hass, coordinator):
     registry = er.async_get(hass)
     entry_id = coordinator.entry.entry_id
-    return {"config": coordinator.config, "mode": coordinator.mode, "version": "0.1.7",
+    rooms = []
+    for room_id, name in ROOMS.items():
+        existing = next((item for item in hass.data.get(DOMAIN, {}).values()
+                         if hasattr(item, "entry") and item.config.get("room_id", "wohnzimmer") == room_id), None)
+        rooms.append({"room_id": room_id, "name": name, "entry_id": existing.entry.entry_id if existing else None})
+    return {"rooms": rooms, "config": coordinator.config, "mode": coordinator.mode, "version": "0.2.0",
         "plan_entity": registry.async_get_entity_id("sensor", DOMAIN, f"{entry_id}_plan"),
         "mode_entity": registry.async_get_entity_id("select", DOMAIN, f"{entry_id}_mode")}
 
@@ -75,19 +81,30 @@ async def save_config(hass, connection, msg):
         return
     try:
         submitted = dict(msg["config"])
-        for key in ("power_sensor", "secondary_temperature_sensor"):
+        for key in ("power_sensor", "secondary_temperature_sensor", "heat_pump", "radiators", "window_sensor"):
             if not submitted.get(key):
                 submitted.pop(key, None)
         config = schema(coordinator.config)(submitted)
         config.setdefault("power_sensor", "")
         config.setdefault("secondary_temperature_sensor", "")
+        for key in ("heat_pump", "radiators", "window_sensor"):
+            config.setdefault(key, "")
+        if config.get("room_id", "wohnzimmer") != coordinator.config.get("room_id", "wohnzimmer"):
+            raise ValueError("Der Raum einer bestehenden Einrichtung kann nicht geändert werden.")
+        devices = {config.get("heat_pump"), config.get("radiators")} - {None, ""}
+        for other in hass.data.get(DOMAIN, {}).values():
+            if hasattr(other, "entry") and other is not coordinator and devices.intersection({other.config.get("heat_pump"), other.config.get("radiators")}):
+                raise ValueError("Eine Wärmequelle darf nicht mehreren Räumen zugeordnet werden.")
         error = validate(config)
         if error:
             messages = {"same_sensor": "Bitte zwei unterschiedliche Temperatursensoren wählen.",
                 "recursive_sensor": "Die berechnete Raumtemperatur darf nicht als eigene Quelle verwendet werden.",
                 "same_device": "Midea und Heizkörper müssen unterschiedlich sein.",
                 "temperature_order": "Nachttemperatur darf nicht über Komforttemperatur liegen.",
-                "schedule_order": "Komfortzeiten müssen vor der Nachtabsenkung liegen."}
+                "schedule_order": "Startzeiten müssen je Tagesgruppe aufsteigend sein: Morgens < Tag < Abend < Nacht.",
+                "invalid_room": "Ungültiger Raum.",
+                "missing_heater": "Mindestens eine Wärmequelle zuordnen.",
+                "missing_source": "Eine gewählte Phasen-Wärmequelle ist diesem Raum nicht zugeordnet."}
             raise ValueError(messages[error])
         for key in ("temperature_sensor", "secondary_temperature_sensor", "window_sensor", "heat_pump", "radiators", "weather", "power_sensor"):
             if config.get(key) and hass.states.get(config[key]) is None:

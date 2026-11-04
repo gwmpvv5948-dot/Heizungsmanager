@@ -1,3 +1,13 @@
+## 0.2.0
+
+- Vier feste Phasen je Raum und Tagesgruppe: Morgens, Tag, Abend, Nacht; jeweils Startzeit, Zieltemperatur und Wärmequellen einstellbar.
+- Getrennte vollständige Pläne für Mo–Fr und Sa–So; korrekte Fortsetzung der vorherigen Nacht über den Wochenwechsel.
+- Phasen beginnen zur eingestellten Zeit; automatische Vorheiz-/Unterstützungsfenster aus 0.1.x entfallen.
+- Bestehende Morgen-/Nachtzeiten und Temperaturen werden übernommen; Tag/Abend als veränderbare Zwischenphasen ergänzt.
+- Raumwahl für Wohnzimmer, Arbeitszimmer, Alwin, Carla, Flur; zusätzliche Räume bleiben zunächst unkonfiguriert. Eigene Geräte, Pläne, Lernwerte und Abweichungen je HA-Eintrag.
+- Optionale Midea, Heizkörper und Türkontakte für spätere Räume; mindestens eine Wärmequelle, keine doppelte Zuordnung derselben Climate-Entität.
+- Exakte Phasen-/Override-Grenzen in der 24-h-Prognose, Quellenfreigabe vor Taktschutz, Schnelländerung bis zur nächsten Phase.
+
 ## 0.1.7
 
 - Allgemeiner Midea-Taktschutz: konfigurierbare Mindestlaufzeit/Mindestpause (je 15 Minuten) und Übertemperaturgrenze (+0,5 °C).

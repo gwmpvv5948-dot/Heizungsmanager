@@ -12,13 +12,6 @@
           "radiators": "Gemeinsames Heizkörperthermostat",
           "weather": "Wetterentität für Dresden",
           "power_sensor": "Optional: gemessene Midea-Leistung (W/kW)",
-          "weekday_start": "Mo–Fr: Komforttemperatur erreicht ab",
-          "weekend_start": "Sa–So: Komforttemperatur erreicht ab",
-          "night_start": "Beginn der Nachtabsenkung (täglich)",
-          "comfort_temperature": "Komforttemperatur (°C)",
-          "night_temperature": "Nachttemperatur (°C)",
-          "max_preheat_minutes": "Maximale Vorheizzeit (Minuten)",
-          "morning_support_minutes": "Heizkörperunterstützung nach Komfortbeginn, maximal (Minuten)",
           "window_delay_seconds": "Türverzögerung (Sekunden)",
           "sensor_timeout_minutes": "Maximales Alter der Raumtemperatur (Minuten)",
           "manual_pause_minutes": "Automatikpause nach manueller Geräteänderung (Minuten)",
@@ -30,16 +23,53 @@
           "night_reheat_hysteresis": "Nacht-Nachheizen: Hysterese (°C)",
           "pump_min_on_minutes": "Midea: Mindestlaufzeit (Minuten)",
           "pump_min_off_minutes": "Midea: Mindestpause (Minuten)",
-          "pump_overheat_margin": "Mindestlaufzeit abbrechen ab Soll + (°C)"
+          "pump_overheat_margin": "Mindestlaufzeit abbrechen ab Soll + (°C)",
+          "room_id": "Raum",
+          "weekday_morning_start": "Mo–Fr · Morgens · Startzeit",
+          "weekday_morning_temperature": "Mo–Fr · Morgens · Zieltemperatur (°C)",
+          "weekday_morning_sources": "Mo–Fr · Morgens · Wärmequellen: heat_pump / radiators / both / off",
+          "weekday_day_start": "Mo–Fr · Tag · Startzeit",
+          "weekday_day_temperature": "Mo–Fr · Tag · Zieltemperatur (°C)",
+          "weekday_day_sources": "Mo–Fr · Tag · Wärmequellen: heat_pump / radiators / both / off",
+          "weekday_evening_start": "Mo–Fr · Abend · Startzeit",
+          "weekday_evening_temperature": "Mo–Fr · Abend · Zieltemperatur (°C)",
+          "weekday_evening_sources": "Mo–Fr · Abend · Wärmequellen: heat_pump / radiators / both / off",
+          "weekday_night_start": "Mo–Fr · Nacht · Startzeit",
+          "weekday_night_temperature": "Mo–Fr · Nacht · Zieltemperatur (°C)",
+          "weekday_night_sources": "Mo–Fr · Nacht · Wärmequellen: heat_pump / radiators / both / off",
+          "weekend_morning_start": "Sa–So · Morgens · Startzeit",
+          "weekend_morning_temperature": "Sa–So · Morgens · Zieltemperatur (°C)",
+          "weekend_morning_sources": "Sa–So · Morgens · Wärmequellen: heat_pump / radiators / both / off",
+          "weekend_day_start": "Sa–So · Tag · Startzeit",
+          "weekend_day_temperature": "Sa–So · Tag · Zieltemperatur (°C)",
+          "weekend_day_sources": "Sa–So · Tag · Wärmequellen: heat_pump / radiators / both / off",
+          "weekend_evening_start": "Sa–So · Abend · Startzeit",
+          "weekend_evening_temperature": "Sa–So · Abend · Zieltemperatur (°C)",
+          "weekend_evening_sources": "Sa–So · Abend · Wärmequellen: heat_pump / radiators / both / off",
+          "weekend_night_start": "Sa–So · Nacht · Startzeit",
+          "weekend_night_temperature": "Sa–So · Nacht · Zieltemperatur (°C)",
+          "weekend_night_sources": "Sa–So · Nacht · Wärmequellen: heat_pump / radiators / both / off"
+        }
+      },
+      "room": {
+        "title": "Raum wählen",
+        "description": "Jeder Raum erhält eigene Geräte, vier Phasen und eigene Lernwerte.",
+        "data": {
+          "room_id": "Raum"
         }
       }
     },
     "error": {
       "same_device": "Bitte zwei unterschiedliche Thermostate wählen.",
       "temperature_order": "Die Nachttemperatur darf nicht über der Komforttemperatur liegen.",
-      "schedule_order": "Beide Komfortzeiten müssen vor Beginn der Nachtabsenkung liegen.",
+      "schedule_order": "Startzeiten müssen aufsteigend sein: Morgens < Tag < Abend < Nacht.",
       "same_sensor": "Bitte zwei unterschiedliche Temperatursensoren wählen.",
-      "recursive_sensor": "Die berechnete Raumtemperatur darf nicht als eigene Quelle verwendet werden."
+      "recursive_sensor": "Die berechnete Raumtemperatur darf nicht als eigene Quelle verwendet werden.",
+      "invalid_room": "Ungültiger Raum.",
+      "room_immutable": "Raum kann nach Einrichtung nicht geändert werden.",
+      "shared_device": "Eine Wärmequelle darf nicht mehreren Räumen zugeordnet werden.",
+      "missing_heater": "Mindestens eine Wärmequelle zuordnen.",
+      "missing_source": "Eine in den Phasen gewählte Wärmequelle fehlt im Raum."
     },
     "abort": {
       "already_configured": "Das Wohnzimmer ist bereits eingerichtet."
@@ -57,13 +87,6 @@
           "radiators": "Gemeinsames Heizkörperthermostat",
           "weather": "Wetterentität für Dresden",
           "power_sensor": "Optional: gemessene Midea-Leistung (W/kW)",
-          "weekday_start": "Mo–Fr: Komforttemperatur erreicht ab",
-          "weekend_start": "Sa–So: Komforttemperatur erreicht ab",
-          "night_start": "Beginn der Nachtabsenkung (täglich)",
-          "comfort_temperature": "Komforttemperatur (°C)",
-          "night_temperature": "Nachttemperatur (°C)",
-          "max_preheat_minutes": "Maximale Vorheizzeit (Minuten)",
-          "morning_support_minutes": "Heizkörperunterstützung nach Komfortbeginn, maximal (Minuten)",
           "window_delay_seconds": "Türverzögerung (Sekunden)",
           "sensor_timeout_minutes": "Maximales Alter der Raumtemperatur (Minuten)",
           "manual_pause_minutes": "Automatikpause nach manueller Geräteänderung (Minuten)",
@@ -75,16 +98,46 @@
           "night_reheat_hysteresis": "Nacht-Nachheizen: Hysterese (°C)",
           "pump_min_on_minutes": "Midea: Mindestlaufzeit (Minuten)",
           "pump_min_off_minutes": "Midea: Mindestpause (Minuten)",
-          "pump_overheat_margin": "Mindestlaufzeit abbrechen ab Soll + (°C)"
+          "pump_overheat_margin": "Mindestlaufzeit abbrechen ab Soll + (°C)",
+          "room_id": "Raum",
+          "weekday_morning_start": "Mo–Fr · Morgens · Startzeit",
+          "weekday_morning_temperature": "Mo–Fr · Morgens · Zieltemperatur (°C)",
+          "weekday_morning_sources": "Mo–Fr · Morgens · Wärmequellen: heat_pump / radiators / both / off",
+          "weekday_day_start": "Mo–Fr · Tag · Startzeit",
+          "weekday_day_temperature": "Mo–Fr · Tag · Zieltemperatur (°C)",
+          "weekday_day_sources": "Mo–Fr · Tag · Wärmequellen: heat_pump / radiators / both / off",
+          "weekday_evening_start": "Mo–Fr · Abend · Startzeit",
+          "weekday_evening_temperature": "Mo–Fr · Abend · Zieltemperatur (°C)",
+          "weekday_evening_sources": "Mo–Fr · Abend · Wärmequellen: heat_pump / radiators / both / off",
+          "weekday_night_start": "Mo–Fr · Nacht · Startzeit",
+          "weekday_night_temperature": "Mo–Fr · Nacht · Zieltemperatur (°C)",
+          "weekday_night_sources": "Mo–Fr · Nacht · Wärmequellen: heat_pump / radiators / both / off",
+          "weekend_morning_start": "Sa–So · Morgens · Startzeit",
+          "weekend_morning_temperature": "Sa–So · Morgens · Zieltemperatur (°C)",
+          "weekend_morning_sources": "Sa–So · Morgens · Wärmequellen: heat_pump / radiators / both / off",
+          "weekend_day_start": "Sa–So · Tag · Startzeit",
+          "weekend_day_temperature": "Sa–So · Tag · Zieltemperatur (°C)",
+          "weekend_day_sources": "Sa–So · Tag · Wärmequellen: heat_pump / radiators / both / off",
+          "weekend_evening_start": "Sa–So · Abend · Startzeit",
+          "weekend_evening_temperature": "Sa–So · Abend · Zieltemperatur (°C)",
+          "weekend_evening_sources": "Sa–So · Abend · Wärmequellen: heat_pump / radiators / both / off",
+          "weekend_night_start": "Sa–So · Nacht · Startzeit",
+          "weekend_night_temperature": "Sa–So · Nacht · Zieltemperatur (°C)",
+          "weekend_night_sources": "Sa–So · Nacht · Wärmequellen: heat_pump / radiators / both / off"
         }
       }
     },
     "error": {
       "same_device": "Bitte zwei unterschiedliche Thermostate wählen.",
       "temperature_order": "Die Nachttemperatur darf nicht über der Komforttemperatur liegen.",
-      "schedule_order": "Beide Komfortzeiten müssen vor Beginn der Nachtabsenkung liegen.",
+      "schedule_order": "Startzeiten müssen aufsteigend sein: Morgens < Tag < Abend < Nacht.",
       "same_sensor": "Bitte zwei unterschiedliche Temperatursensoren wählen.",
-      "recursive_sensor": "Die berechnete Raumtemperatur darf nicht als eigene Quelle verwendet werden."
+      "recursive_sensor": "Die berechnete Raumtemperatur darf nicht als eigene Quelle verwendet werden.",
+      "invalid_room": "Ungültiger Raum.",
+      "room_immutable": "Raum kann nach Einrichtung nicht geändert werden.",
+      "missing_heater": "Mindestens eine Wärmequelle zuordnen.",
+      "missing_source": "Eine in den Phasen gewählte Wärmequelle fehlt im Raum.",
+      "shared_device": "Eine Wärmequelle darf nicht mehreren Räumen zugeordnet werden."
     }
   }
 }

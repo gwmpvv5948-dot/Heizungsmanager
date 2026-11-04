@@ -81,9 +81,46 @@ def local_at(day, clock, tz):
     return datetime.combine(day, time.fromisoformat(clock), tzinfo=tz)
 
 
-def day_schedule(now, config):
-    clock = config["weekend_start"] if now.weekday() >= 5 else config["weekday_start"]
-    return local_at(now.date(), clock, now.tzinfo), local_at(now.date(), config["night_start"], now.tzinfo)
+PHASES = (("morning", "Morgens"), ("day", "Tag"), ("evening", "Abend"), ("night", "Nacht"))
+SOURCES = {"both": "Midea + Heizkörper", "heat_pump": "Midea", "radiators": "Heizkörper", "off": "Keine Wärmequelle"}
+ROOMS = {"wohnzimmer": "Wohnzimmer", "arbeitszimmer": "Arbeitszimmer", "alwin": "Alwin", "carla": "Carla", "flur": "Flur"}
+
+
+def normalize_config(config):
+    """Migrate the old two-temperature plan without changing its saved inputs."""
+    result = dict(config)
+    room = result.setdefault("room_id", "wohnzimmer")
+    result["room_name"] = ROOMS.get(room, room)
+    for kind, old in (("weekday", "weekday_start"), ("weekend", "weekend_start")):
+        start = time.fromisoformat(config.get(old, "06:20:00" if kind == "weekday" else "08:00:00"))
+        night = time.fromisoformat(config.get("night_start", "22:00:00"))
+        morning_min = start.hour * 60 + start.minute
+        night_min = night.hour * 60 + night.minute
+        support = max(1, min(int(config.get("morning_support_minutes", 45)), max(1, (night_min - morning_min) // 3)))
+        day_min = morning_min + support
+        evening_min = 17 * 60 if day_min < 17 * 60 < night_min else (day_min + night_min) // 2
+        clocks = [morning_min, day_min, evening_min, night_min]
+        for (phase, _), minutes in zip(PHASES, clocks):
+            prefix = f"{kind}_{phase}_"
+            result.setdefault(prefix + "start", f"{minutes // 60:02}:{minutes % 60:02}:00")
+            result.setdefault(prefix + "temperature", config.get("night_temperature", 18) if phase == "night" else config.get("comfort_temperature", 21))
+            result.setdefault(prefix + "sources", "both" if phase == "morning" else "heat_pump")
+    return result
+
+
+def phase_at(now, config):
+    config = normalize_config(config)
+    # The night phase continues from the PREVIOUS day until today's morning.
+    candidates = []
+    for offset in (-1, 0):
+        day = now + timedelta(days=offset)
+        kind = "weekend" if day.weekday() >= 5 else "weekday"
+        for key, label in PHASES:
+            prefix = f"{kind}_{key}_"
+            start = local_at(day.date(), config[prefix + "start"], now.tzinfo)
+            if start.timestamp() <= now.timestamp():
+                candidates.append((start.timestamp(), key, label, config[prefix + "temperature"], config[prefix + "sources"]))
+    return max(candidates, key=lambda row: row[0])
 
 
 def outdoor_at(when, current, forecast):
@@ -97,29 +134,9 @@ def outdoor_at(when, current, forecast):
     return 5.0, "Annahme 5 °C – Wetter fehlt"
 
 
-def preheat_minutes(model, temp, outside, config):
-    rate = max(0.25, model.rate(temp, outside, 1, 1))
-    required = max(0, config["comfort_temperature"] - temp) / rate * 60
-    return min(config["max_preheat_minutes"], max(15, math.ceil(required / 5) * 5))
-
-
 def decision(now, temp, outside, config, model):
-    start, end = day_schedule(now, config)
-    lead = preheat_minutes(model, temp, outside, config)
-    # Also consider tomorrow's preheating crossing midnight.
-    tomorrow = now + timedelta(days=1)
-    next_start, _ = day_schedule(tomorrow, config)
-    next_lead = preheat_minutes(model, temp, outside, config)
-    if start - timedelta(minutes=lead) <= now < start:
-        return config["comfort_temperature"], "Aufheizen", True, "Morgens gemeinsam auf Komforttemperatur vorheizen"
-    if start <= now < end:
-        support = now < start + timedelta(minutes=config["morning_support_minutes"]) and temp < config["comfort_temperature"] - 0.2
-        return config["comfort_temperature"], "Aufheizen" if support else "Temperatur halten", support, (
-            "Heizkörper unterstützen bis Komfort erreicht ist oder das Morgenfenster endet" if support else
-            "Midea hält die Komforttemperatur; Heizkörper aus")
-    if next_start - timedelta(minutes=next_lead) <= now < next_start:
-        return config["comfort_temperature"], "Aufheizen", True, "Vorheizen für den folgenden Morgen"
-    return config["night_temperature"], "Nacht", False, "Nachts nur bei Unterschreitung nachheizen; Heizkörper aus"
+    _, key, label, target, sources = phase_at(now, config)
+    return target, label, sources in ("both", "radiators"), f"{label}: {target:.1f} °C · {SOURCES[sources]}"
 
 
 def night_reheat(temp, target, active, hysteresis):
@@ -128,10 +145,15 @@ def night_reheat(temp, target, active, hysteresis):
 
 
 def next_schedule_time(now, config):
+    config = normalize_config(config)
     boundaries = []
     for days in range(3):
-        start, end = day_schedule(now + timedelta(days=days), config)
-        boundaries.extend(point.timestamp() for point in (start, end) if point.timestamp() > now.timestamp())
+        day = now + timedelta(days=days)
+        kind = "weekend" if day.weekday() >= 5 else "weekday"
+        for key, _ in PHASES:
+            point = local_at(day.date(), config[f"{kind}_{key}_start"], now.tzinfo)
+            if point.timestamp() > now.timestamp():
+                boundaries.append(point.timestamp())
     return min(boundaries)
 
 
@@ -151,15 +173,29 @@ def cycle_guard(now, requested, active, since, config, temperature, target):
 
 def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_active=False, override=None,
               pump_state=None, pump_state_since=None):
+    config = normalize_config(config)
     rows = []
     predicted = temp
     active = pump_heat_active if pump_state is None else pump_state
     since = now.timestamp() - 86400 if pump_state_since is None else pump_state_since
-    # Timestamp arithmetic preserves exactly 24 elapsed hours through DST changes.
-    for step in range(145):
-        when = datetime.fromtimestamp(now.timestamp() + step * 600, now.tzinfo)
+    # Include exact phase/override boundaries in addition to the 10-minute grid.
+    horizon = now.timestamp() + 86400
+    stamps = {now.timestamp() + step * 600 for step in range(145)}
+    cursor = now
+    while True:
+        boundary = next_schedule_time(cursor, config)
+        if boundary > horizon:
+            break
+        stamps.add(boundary)
+        cursor = datetime.fromtimestamp(boundary, now.tzinfo)
+    if override and now.timestamp() < override["until"] < horizon:
+        stamps.add(override["until"])
+    ordered = sorted(stamps)
+    for index, stamp in enumerate(ordered):
+        when = datetime.fromtimestamp(stamp, now.tzinfo)
         outside, source = outdoor_at(when, current_outside, forecast)
         target, phase, support, reason = decision(when, predicted, outside, config, model)
+        _, phase_key, _, _, sources = phase_at(when, config)
         scheduled_target = target
         override_active = bool(override and when.timestamp() < override["until"])
         if override_active:
@@ -168,7 +204,7 @@ def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_act
             reason = f"Temporäre Wunschtemperatur {target:.1f} °C; anschließend automatisch zurück zum Zeitplan"
         enabled = True
         control_target = target
-        if phase == "Nacht":
+        if phase_key == "night" and not override_active:
             hysteresis = config.get("night_reheat_hysteresis", 0.3)
             pump_heat_active = night_reheat(predicted, target, pump_heat_active, hysteresis)
             enabled = pump_heat_active
@@ -182,9 +218,13 @@ def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_act
             enabled = pump_heat_active
             if not enabled:
                 reason += f" · Kein Heizbedarf: Midea aus; Start erst unter {target - 0.2:.1f} °C"
-        requested = enabled
+        if sources not in ("both", "heat_pump"):
+            reason = f"{phase}: {target:.1f} °C · {SOURCES[sources]}; Midea nicht freigegeben"
+        requested = enabled and sources in ("both", "heat_pump")
         enabled, protection, remaining = cycle_guard(
             when.timestamp(), requested, active, since, config, predicted, target)
+        if sources not in ("both", "heat_pump"):
+            enabled, protection, remaining = False, "", 0
         if protection:
             reason += f" · Taktschutz: {protection}"
             if remaining:
@@ -193,16 +233,19 @@ def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_act
             since = when.timestamp()
             active = enabled
         pump_heat_active = enabled
-        rad = 1.0 if support and predicted < target - 0.15 else 0.0
+        # Radiators also stop when the target is reached, in every phase.
+        rad = 1.0 if sources in ("both", "radiators") and predicted < target - 0.15 else 0.0
         required = (control_target - predicted) * 3 + model.loss * (predicted - outside) - model.radiator_gain * rad
         pump = max(0.0, min(1.0, required / model.pump_gain)) if enabled else 0.0
         rows.append({"time": when.isoformat(), "target": target, "temperature": round(predicted, 2),
                      "scheduled_target": scheduled_target, "override_active": override_active,
                      "outdoor": round(outside, 1), "weather_source": source,
-                     "phase": phase, "radiators": bool(rad), "heat_pump": enabled,
+                     "phase": phase, "phase_key": phase_key, "sources": sources,
+                     "radiators": bool(rad), "heat_pump": enabled,
                      "control_target": round(control_target, 2),
                      "cycle_protection": protection, "cycle_remaining_seconds": remaining,
                      "requested_heat_pump": requested,
                      "pump_demand_estimate": round(pump, 2), "reason": reason})
-        predicted += model.rate(predicted, outside, pump, rad) / 6
+        hours = (ordered[index + 1] - stamp) / 3600 if index + 1 < len(ordered) else 0
+        predicted += model.rate(predicted, outside, pump, rad) * hours
     return rows

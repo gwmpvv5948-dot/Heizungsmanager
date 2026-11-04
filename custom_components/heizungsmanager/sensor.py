@@ -20,8 +20,10 @@ class RoomTemperatureSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator)
+        if coordinator.config["room_id"] != "wohnzimmer":
+            self._attr_name = f"Heizungsmanager {coordinator.config['room_name']} " + ("Raumtemperatur" if isinstance(self, RoomTemperatureSensor) else "Fahrplan")
         self._attr_unique_id = f"{entry.entry_id}_room_temperature"
-        self._attr_suggested_object_id = "heizungsmanager_wz_raumtemperatur"
+        self._attr_suggested_object_id = f"heizungsmanager_{'wz' if coordinator.config['room_id']=='wohnzimmer' else coordinator.config['room_id']}_raumtemperatur"
 
     @property
     def available(self):
@@ -43,8 +45,10 @@ class HeatingPlanSensor(CoordinatorEntity, SensorEntity):
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator)
+        if coordinator.config["room_id"] != "wohnzimmer":
+            self._attr_name = f"Heizungsmanager {coordinator.config['room_name']} " + ("Raumtemperatur" if isinstance(self, RoomTemperatureSensor) else "Fahrplan")
         self._attr_unique_id = f"{entry.entry_id}_plan"
-        self._attr_suggested_object_id = "heizungsmanager_wz_fahrplan"
+        self._attr_suggested_object_id = f"heizungsmanager_{'wz' if coordinator.config['room_id']=='wohnzimmer' else coordinator.config['room_id']}_fahrplan"
         # Large changing attributes are intentionally excluded from Recorder.
         self._unrecorded_attributes = frozenset({"plan", "history", "config", "model", "updated"})
 

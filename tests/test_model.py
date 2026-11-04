@@ -22,28 +22,61 @@ class ModelTests(unittest.TestCase):
         self.cfg = dict(c.DEFAULTS)
         self.model = m.ThermalModel()
 
-    def test_weekday_weekend_and_night(self):
-        for date, clock in [('2026-11-04', '06:20'), ('2026-11-07', '08:00')]:
-            now = datetime.fromisoformat(date+'T'+clock).replace(tzinfo=TZ)
-            start, end = m.day_schedule(now, self.cfg)
-            self.assertEqual(start, now)
-            target, phase, support, reason = m.decision(now, 19, 5, self.cfg, self.model)
-            self.assertTrue(support)
-            self.assertEqual(target, 21)
-            self.assertFalse(m.decision(now+timedelta(hours=1),19,5,self.cfg,self.model)[2])
-            self.assertEqual(m.decision(end,21,5,self.cfg,self.model)[0],18)
+    def test_weekday_weekend_and_all_four_phases(self):
+        cfg=m.normalize_config(self.cfg)
+        for day,kind in [('2026-11-04','weekday'),('2026-11-07','weekend')]:
+            for key,label in m.PHASES:
+                now=datetime.fromisoformat(day+'T'+cfg[f'{kind}_{key}_start']).replace(tzinfo=TZ)
+                _,phase_key,phase,target,sources=m.phase_at(now,cfg)
+                self.assertEqual(phase_key,key);self.assertEqual(phase,label)
+                self.assertEqual(target,cfg[f'{kind}_{key}_temperature'])
 
-    def test_preheats_before_arrival_and_handover(self):
-        now = datetime(2026,11,4,6,0,tzinfo=TZ)
-        self.assertTrue(m.decision(now,19,5,self.cfg,self.model)[2])
-        now = now.replace(hour=6,minute=25)
-        self.assertFalse(m.decision(now,21,5,self.cfg,self.model)[2])
+    def test_no_hidden_preheating_before_morning(self):
+        now=datetime(2026,11,4,6,19,tzinfo=TZ)
+        self.assertEqual(m.phase_at(now,self.cfg)[1],'night')
+        self.assertEqual(m.phase_at(now+timedelta(minutes=1),self.cfg)[1],'morning')
+
+    def test_friday_night_target_continues_into_saturday(self):
+        cfg=m.normalize_config(self.cfg)
+        cfg['weekday_night_temperature']=17
+        cfg['weekend_night_temperature']=19
+        self.assertEqual(m.phase_at(datetime(2026,11,7,2,tzinfo=TZ),cfg)[3],17)
+        self.assertEqual(m.phase_at(datetime(2026,11,7,23,tzinfo=TZ),cfg)[3],19)
+        self.assertEqual(m.phase_at(datetime(2026,11,9,2,tzinfo=TZ),cfg)[3],19)
+
+    def test_phase_targets_and_sources_are_independent(self):
+        cfg=m.normalize_config(self.cfg)
+        now=datetime(2026,11,4,12,tzinfo=TZ)
+        cfg['weekday_day_temperature']=22
+        for sources,pump,rad in [('both',True,True),('heat_pump',True,False),('radiators',False,True),('off',False,False)]:
+            cfg['weekday_day_sources']=sources
+            row=m.make_plan(now,19,5,[],cfg,self.model)[0]
+            self.assertEqual((row['target'],row['heat_pump'],row['radiators']),(22,pump,rad))
+
+    def test_exact_phase_and_override_boundaries_in_forecast(self):
+        now=datetime(2026,11,4,6,13,tzinfo=TZ)
+        plan=m.make_plan(now,19,5,[],self.cfg,self.model,override={'temperature':20,'until':now.timestamp()+123})
+        stamps={datetime.fromisoformat(p['time']).timestamp() for p in plan}
+        self.assertIn(now.timestamp()+123,stamps)
+        self.assertIn(now.replace(minute=20).timestamp(),stamps)
+
+    def test_migration_keeps_existing_times_and_temperatures(self):
+        raw={**self.cfg,'weekday_start':'06:35:00','weekend_start':'09:00:00','night_start':'21:00:00','comfort_temperature':20.5,'night_temperature':18}
+        cfg=m.normalize_config(raw)
+        self.assertEqual(cfg['weekday_morning_start'],'06:35:00')
+        self.assertEqual(cfg['weekend_morning_start'],'09:00:00')
+        self.assertEqual(cfg['weekday_night_start'],'21:00:00')
+        self.assertEqual(cfg['weekday_day_temperature'],20.5)
+        self.assertEqual(cfg['weekday_evening_start'],'17:00:00')
+        cfg['weekday_day_temperature']=19
+        self.assertEqual(m.normalize_config(cfg)['weekday_day_temperature'],19)
+        self.assertNotIn('weekday_day_temperature',raw)
 
     def test_plan_is_24_hours_across_dst(self):
         for day in [(2026,3,28),(2026,10,24),(2026,11,3)]:
             now = datetime(*day,12,tzinfo=TZ)
             plan = m.make_plan(now,20,5,[],self.cfg,self.model)
-            self.assertEqual(len(plan),145)
+            self.assertGreaterEqual(len(plan),145)
             self.assertEqual(datetime.fromisoformat(plan[-1]['time']).timestamp()-now.timestamp(),86400)
             self.assertTrue(all(math.isfinite(p['temperature']) for p in plan))
 

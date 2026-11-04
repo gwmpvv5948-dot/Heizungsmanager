@@ -23,10 +23,12 @@ async def async_setup_entry(hass, entry):
     await coordinator.async_initialize()
     domain_data[entry.entry_id] = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    await async_register_panel(hass, frontend_url_path="heizungsmanager",
-        webcomponent_name="heizungsmanager-panel", sidebar_title="Heizungsmanager",
-        sidebar_icon="mdi:heat-pump", module_url="/heizungsmanager-static/panel.js?v=0.1.7",
-        config={"entry_id": entry.entry_id}, require_admin=True)
+    if not domain_data.get("panel_registered"):
+        await async_register_panel(hass, frontend_url_path="heizungsmanager",
+            webcomponent_name="heizungsmanager-panel", sidebar_title="Heizungsmanager",
+            sidebar_icon="mdi:heat-pump", module_url="/heizungsmanager-static/panel.js?v=0.2.0",
+            config={"entry_id": entry.entry_id}, require_admin=True)
+        domain_data["panel_registered"] = True
     entry.async_on_unload(entry.add_update_listener(async_options_updated))
     return True
 
@@ -40,6 +42,14 @@ async def async_unload_entry(hass, entry):
     if await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         coordinator = hass.data[DOMAIN].pop(entry.entry_id)
         await coordinator.async_shutdown()
+        remaining = [value for value in hass.data[DOMAIN].values() if isinstance(value, HeatingCoordinator)]
         frontend.async_remove_panel(hass, "heizungsmanager")
+        hass.data[DOMAIN]["panel_registered"] = False
+        if remaining:
+            await async_register_panel(hass, frontend_url_path="heizungsmanager",
+                webcomponent_name="heizungsmanager-panel", sidebar_title="Heizungsmanager",
+                sidebar_icon="mdi:heat-pump", module_url="/heizungsmanager-static/panel.js?v=0.2.0",
+                config={"entry_id": remaining[0].entry.entry_id}, require_admin=True)
+            hass.data[DOMAIN]["panel_registered"] = True
         return True
     return False

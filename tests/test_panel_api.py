@@ -13,7 +13,7 @@ for node in tree.body:
         node.decorator_list=[]
         functions.append(node)
 registry=SimpleNamespace(async_get_entity_id=lambda domain,platform,uid:domain+'.'+uid)
-ns={'DOMAIN':'heizungsmanager','er':SimpleNamespace(async_get=lambda hass:registry),
+ns={'ROOMS':{'wohnzimmer':'Wohnzimmer','alwin':'Alwin'},'DOMAIN':'heizungsmanager','er':SimpleNamespace(async_get=lambda hass:registry),
     'schema':lambda config:lambda data:data,'validate':lambda config:None,
     'vol':SimpleNamespace(Invalid=ValueError)}
 exec(compile(ast.Module(body=functions,type_ignores=[]),str(path),'exec'),ns)

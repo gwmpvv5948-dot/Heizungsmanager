@@ -16,8 +16,10 @@ class HeatingMode(CoordinatorEntity, SelectEntity):
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator)
+        if coordinator.config["room_id"] != "wohnzimmer":
+            self._attr_name = f"Heizungsmanager {coordinator.config['room_name']} Betriebsart"
         self._attr_unique_id = f"{entry.entry_id}_mode"
-        self._attr_suggested_object_id = "heizungsmanager_wz_betriebsart"
+        self._attr_suggested_object_id = f"heizungsmanager_{'wz' if coordinator.config['room_id']=='wohnzimmer' else coordinator.config['room_id']}_betriebsart"
 
     @property
     def current_option(self):

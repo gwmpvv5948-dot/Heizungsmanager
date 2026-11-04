@@ -7,21 +7,31 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import selector
 from .const import DOMAIN, DEFAULTS
+from .model import normalize_config, PHASES, SOURCES, ROOMS
 
 
 def schema(values):
+    values = normalize_config(values)
     fields = {}
-    for key, domain in (("temperature_sensor", "sensor"), ("window_sensor", "binary_sensor"),
-                        ("heat_pump", "climate"), ("radiators", "climate"), ("weather", "weather")):
+    fields[vol.Required("room_id", default=values["room_id"])] = vol.In(ROOMS)
+    for key, domain in (("temperature_sensor", "sensor"), ("weather", "weather")):
         default = values.get(key) or vol.UNDEFINED
         fields[vol.Required(key, default=default)] = selector.EntitySelector(
+            selector.EntitySelectorConfig(domain=domain))
+    for key, domain in (("window_sensor", "binary_sensor"), ("heat_pump", "climate"), ("radiators", "climate")):
+        fields[vol.Optional(key, description={"suggested_value": values.get(key, "")})] = selector.EntitySelector(
             selector.EntitySelectorConfig(domain=domain))
     fields[vol.Optional("power_sensor", description={"suggested_value": values.get("power_sensor", "")})] = selector.EntitySelector(
         selector.EntitySelectorConfig(domain="sensor", device_class="power"))
     fields[vol.Optional("secondary_temperature_sensor", description={"suggested_value": values.get("secondary_temperature_sensor", "")})] = selector.EntitySelector(
         selector.EntitySelectorConfig(domain="sensor", device_class="temperature"))
-    for key in ("weekday_start", "weekend_start", "night_start"):
-        fields[vol.Required(key, default=values[key])] = selector.TimeSelector()
+    for kind in ("weekday", "weekend"):
+        for phase, _ in PHASES:
+            prefix = f"{kind}_{phase}_"
+            fields[vol.Required(prefix + "start", default=values[prefix + "start"])] = selector.TimeSelector()
+            fields[vol.Required(prefix + "temperature", default=values[prefix + "temperature"])] = selector.NumberSelector(
+                selector.NumberSelectorConfig(min=7, max=24, step=0.5, mode="box"))
+            fields[vol.Required(prefix + "sources", default=values[prefix + "sources"])] = vol.In(SOURCES)
     for key, low, high, step in (("primary_temperature_weight", 1, 99, 1),
                                 ("night_reheat_hysteresis", 0.1, 1.0, 0.1),
                                 ("pump_min_on_minutes", 5, 60, 1),
@@ -30,27 +40,33 @@ def schema(values):
                                 ("primary_temperature_offset", -3, 3, 0.1),
                                 ("secondary_temperature_offset", -3, 3, 0.1),
                                 ("temperature_smoothing_minutes", 0, 15, 1),
-                                ("comfort_temperature", 16, 24, 0.5), ("night_temperature", 7, 22, 0.5),
-                                ("max_preheat_minutes", 15, 240, 5), ("morning_support_minutes", 0, 180, 5),
+
                                 ("window_delay_seconds", 0, 120, 5), ("sensor_timeout_minutes", 10, 360, 10),
                                 ("manual_pause_minutes", 15, 480, 15)):
         fields[vol.Required(key, default=values[key])] = selector.NumberSelector(
             selector.NumberSelectorConfig(min=low, max=high, step=step, mode="box"))
-    return vol.Schema(fields)
+    return vol.Schema(fields, extra=vol.REMOVE_EXTRA)
 
 
 def validate(data):
     if data.get("temperature_sensor") == data.get("secondary_temperature_sensor"):
         return "same_sensor"
-    if any(data.get(key, "").startswith("sensor.heizungsmanager_wz_raumtemperatur") for key in ("temperature_sensor", "secondary_temperature_sensor")):
+    if any((data.get(key, "").startswith("sensor.heizungsmanager_") and data.get(key, "").endswith("_raumtemperatur")) for key in ("temperature_sensor", "secondary_temperature_sensor")):
         return "recursive_sensor"
-    if data["heat_pump"] == data["radiators"]:
+    if data.get("heat_pump") and data.get("heat_pump") == data.get("radiators"):
         return "same_device"
-    if data["night_temperature"] > data["comfort_temperature"]:
-        return "temperature_order"
-    end = time.fromisoformat(data["night_start"])
-    if any(time.fromisoformat(data[k]) >= end for k in ("weekday_start", "weekend_start")):
-        return "schedule_order"
+    if not data.get("heat_pump") and not data.get("radiators"):
+        return "missing_heater"
+    for kind in ("weekday", "weekend"):
+        for key, _ in PHASES:
+            sources = data[f"{kind}_{key}_sources"]
+            if (sources in ("both", "heat_pump") and not data.get("heat_pump")) or (sources in ("both", "radiators") and not data.get("radiators")):
+                return "missing_source"
+        starts = [time.fromisoformat(data[f"{kind}_{key}_start"]) for key, _ in PHASES]
+        if starts != sorted(starts) or len(set(starts)) != 4:
+            return "schedule_order"
+    if data.get("room_id", "wohnzimmer") not in ROOMS:
+        return "invalid_room"
     return None
 
 
@@ -58,15 +74,44 @@ class HeizungsmanagerFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input=None):
+        if not hasattr(self, "_room_id"):
+            return await self.async_step_room(user_input)
         errors = {}
         if user_input is not None:
+            user_input["room_id"] = self._room_id
+            for key in ("heat_pump", "radiators", "window_sensor", "power_sensor", "secondary_temperature_sensor"):
+                user_input.setdefault(key, "")
             error = validate(user_input)
             if error is None:
-                await self.async_set_unique_id("wohnzimmer")
-                self._abort_if_unique_id_configured()
-                return self.async_create_entry(title="Heizungsmanager Wohnzimmer", data=user_input)
+                # A heat source must never be controlled by two rooms.
+                devices = {user_input.get("heat_pump"), user_input.get("radiators")} - {None, ""}
+                for entry in self.hass.config_entries.async_entries(DOMAIN):
+                    other = {**entry.data, **entry.options}
+                    if devices.intersection({other.get("heat_pump"), other.get("radiators")}):
+                        error = "shared_device"
+                        break
+            if error is None:
+                return self.async_create_entry(title="Heizungsmanager " + ROOMS[self._room_id], data=user_input)
             errors["base"] = error
-        return self.async_show_form(step_id="user", data_schema=schema({**DEFAULTS, **(user_input or {})}), errors=errors)
+        values = {**DEFAULTS, "room_id": self._room_id}
+        if self._room_id != "wohnzimmer":
+            for key in ("temperature_sensor", "secondary_temperature_sensor", "window_sensor", "heat_pump", "radiators", "power_sensor"):
+                values[key] = ""
+            values = normalize_config(values)
+            for kind in ("weekday", "weekend"):
+                for phase, _ in PHASES:
+                    values[f"{kind}_{phase}_sources"] = "radiators"
+        values.update(user_input or {})
+        return self.async_show_form(step_id="user", data_schema=schema(values), errors=errors)
+
+    async def async_step_room(self, user_input=None):
+        if user_input is not None:
+            self._room_id = user_input["room_id"]
+            await self.async_set_unique_id(self._room_id)
+            self._abort_if_unique_id_configured()
+            return await self.async_step_user()
+        return self.async_show_form(step_id="room", data_schema=vol.Schema({
+            vol.Required("room_id", default="wohnzimmer"): vol.In(ROOMS)}))
 
     @staticmethod
     @callback
@@ -78,8 +123,21 @@ class HeizungsmanagerOptions(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         errors = {}
         if user_input is not None:
+            for key in ("heat_pump", "radiators", "window_sensor", "power_sensor", "secondary_temperature_sensor"):
+                user_input.setdefault(key, "")
             error = validate(user_input)
             if error is None:
+                devices = {user_input.get("heat_pump"), user_input.get("radiators")} - {None, ""}
+                for entry in self.hass.config_entries.async_entries(DOMAIN):
+                    if entry.entry_id == self.config_entry.entry_id:
+                        continue
+                    other = {**entry.data, **entry.options}
+                    if devices.intersection({other.get("heat_pump"), other.get("radiators")}):
+                        errors["base"] = "shared_device"
+                        return self.async_show_form(step_id="init", data_schema=schema(user_input), errors=errors)
+                if user_input["room_id"] != self.config_entry.data.get("room_id", "wohnzimmer"):
+                    errors["base"] = "room_immutable"
+                    return self.async_show_form(step_id="init", data_schema=schema(user_input), errors=errors)
                 # Explicit empty value allows removing the optional power sensor.
                 user_input.setdefault("power_sensor", "")
                 user_input.setdefault("secondary_temperature_sensor", "")

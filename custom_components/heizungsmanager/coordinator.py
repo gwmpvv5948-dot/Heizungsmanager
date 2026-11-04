@@ -11,7 +11,7 @@ from homeassistant.helpers.event import async_track_time_interval, async_track_s
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 from .const import DEFAULTS, DOMAIN
-from .model import ThermalModel, finite, make_plan, next_schedule_time
+from .model import ThermalModel, finite, make_plan, next_schedule_time, normalize_config
 from .temperature import RoomTemperature
 
 _LOGGER = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, entry):
         super().__init__(hass, _LOGGER, name=DOMAIN)
         self.entry = entry
-        self.config = {**DEFAULTS, **entry.data, **entry.options}
+        self.config = normalize_config({**DEFAULTS, **entry.data, **entry.options})
         self.model = ThermalModel()
         self.mode = "Beobachten"
         self.store = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}")
@@ -97,7 +97,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
 
     async def async_apply_options(self):
         async with self.lock:
-            self.config = {**DEFAULTS, **self.entry.data, **self.entry.options}
+            self.config = normalize_config({**DEFAULTS, **self.entry.data, **self.entry.options})
             self.mode = "Beobachten"
             self.manual_until = None
             self.commands = {}
@@ -195,7 +195,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
         if rad and rad.state not in ("unknown", "unavailable"):
             percent = finite(rad.attributes.get("valve_open_percent"), 0, 100)
             r = percent / 100 if percent is not None else (1.0 if rad.attributes.get("hvac_action") == "heating" else 0.0 if rad.state == "off" or rad.attributes.get("hvac_action") in ("idle", "off") else None)
-        return p, r
+        return (p if self.config.get("heat_pump") else 0.0), (r if self.config.get("radiators") else 0.0)
 
     def detect_manual(self, now):
         for key, expected in self.commands.items():
@@ -213,6 +213,8 @@ class HeatingCoordinator(DataUpdateCoordinator):
                 return
 
     async def command(self, key, mode, target):
+        if not self.config.get(key):
+            return
         state = self.state(key)
         if state is None or state.state in ("unknown", "unavailable"):
             raise ValueError(f"{self.config[key]} nicht verfügbar")
@@ -270,7 +272,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
             outside = (outside - 32) * 5 / 9
         outside = finite(outside, -30, 45)
         window = self.state("window_sensor")
-        window_unknown = not window or window.state not in ("on", "off")
+        window_unknown = bool(self.config.get("window_sensor")) and (not window or window.state not in ("on", "off"))
         if window and window.state == "on":
             self.open_since = self.open_since or window.last_changed
         else:
@@ -278,7 +280,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
         window_open = self.open_since is not None
         window_pause = window_open and (now - self.open_since).total_seconds() >= self.config["window_delay_seconds"]
         p, r = self.activity()
-        healthy_devices = all(self.state(k) and self.state(k).state not in ("unknown", "unavailable") for k in ("heat_pump", "radiators"))
+        healthy_devices = all(self.state(k) and self.state(k).state not in ("unknown", "unavailable") for k in ("heat_pump", "radiators") if self.config.get(k))
         if self.mode == "Automatik" and not window_open and not window_unknown:
             self.detect_manual(now)
         if self.manual_until and self.manual_until <= now:

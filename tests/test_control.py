@@ -57,7 +57,7 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
     async def test_observation_never_controls(self):
         await self.c.async_tick()
         self.service.assert_not_awaited()
-        self.assertEqual(len(self.c.data['plan']),145)
+        self.assertGreaterEqual(len(self.c.data['plan']),145)
 
     async def test_auto_keeps_pump_in_heat_and_radiators_off_after_morning(self):
         self.c.mode='Automatik'
@@ -239,6 +239,45 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(plan[0]['cycle_remaining_seconds'],14*60)
         self.assertFalse(plan[1]['heat_pump'])
         self.assertTrue(plan[2]['heat_pump'])
+
+    async def test_radiator_only_phase_stops_pump_despite_minimum_runtime(self):
+        self.c.config['weekday_day_sources']='radiators'
+        pump=self.states['climate.wz_midea_ac'];pump.state='heat';pump.last_changed=NOW
+        await self.c.async_set_mode('Automatik')
+        row=self.c.data['plan'][0]
+        self.assertFalse(row['heat_pump']);self.assertTrue(row['radiators'])
+        calls=[c.args for c in self.service.await_args_list]
+        self.assertTrue(any(c[1]=='set_hvac_mode' and c[2].get('entity_id')==pump.entity_id and c[2]['hvac_mode']=='off' for c in calls))
+
+    async def test_no_heat_phase_turns_off_both_even_when_cold(self):
+        self.c.config['weekday_day_sources']='off'
+        self.states['sensor.wz_temp'].state='17'
+        for entity in ('climate.wz_midea_ac','climate.wz_vtherm'):self.states[entity].state='heat'
+        await self.c.async_set_mode('Automatik')
+        self.assertFalse(self.c.data['plan'][0]['heat_pump'])
+        self.assertFalse(self.c.data['plan'][0]['radiators'])
+        self.assertEqual(sum(c.args[1]=='set_hvac_mode' and c.args[2]['hvac_mode']=='off' for c in self.service.await_args_list),2)
+
+    async def test_room_state_and_overrides_are_independent(self):
+        entry=types.SimpleNamespace(entry_id='alwin',data={'room_id':'alwin'},options={})
+        other=HeatingCoordinator(self.c.hass,entry)
+        other.last_weather_request=NOW.timestamp()
+        await self.c.async_set_override(20,'1h')
+        self.assertIsNone(other.override)
+        self.assertEqual(other.config['room_id'],'alwin')
+        self.assertNotEqual(self.c.entry.entry_id,other.entry.entry_id)
+        self.assertIsNot(self.c.model,other.model)
+
+    async def test_radiator_only_room_without_window_contact(self):
+        self.c.config.update(heat_pump='',window_sensor='')
+        for kind in ('weekday','weekend'):
+            for phase in ('morning','day','evening','night'):
+                self.c.config[f'{kind}_{phase}_sources']='radiators'
+        await self.c.async_set_mode('Automatik')
+        self.assertFalse(self.c.data['window_unknown'])
+        self.assertIsNone(self.c.data['error'])
+        self.assertTrue(self.c.data['plan'][0]['radiators'])
+        self.assertFalse(any(call.args[2]['entity_id']=='climate.wz_midea_ac' for call in self.service.await_args_list))
 
     async def test_failed_first_stop_still_attempts_other_device(self):
         for key in ('climate.wz_midea_ac','climate.wz_vtherm'): self.states[key].state='heat'
