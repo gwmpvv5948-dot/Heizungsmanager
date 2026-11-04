@@ -1,3 +1,10 @@
+## 0.2.5
+
+- Gemeinsame Hysterese je Raum für alle Wärmequellen, Phasen und temporären Sollwerte: Start unter Soll minus Hysterese, Abschalten ab Soll.
+- Heizkörper behalten ihren Freigabezustand im Hystereseband; aktuelle reale Reglerzustände dienen als Startzustand für Steuerung und Prognose.
+- Alte Nacht-Hysterese als allgemeinen Wert übernehmen. Nacht verwendet nun dieselben Schaltschwellen wie Tag (bei 18 / 0,3 °C: Start unter 17,7, aus ab 18 °C).
+- Bestehende Midea-Mindestlaufzeit/-pause und Sicherheitsabschaltungen bleiben wirksam.
+
 ## 0.2.4
 
 - Verbrauch-heute-Kacheln je Raum mit gemeinsamer kWh-Skala: Midea-Stromzähler und separat gekennzeichnete VTherm-Heizkörper-Schätzung.

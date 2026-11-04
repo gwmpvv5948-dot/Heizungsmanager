@@ -310,7 +310,8 @@ class HeatingCoordinator(DataUpdateCoordinator):
         # Restarting HA conservatively starts a fresh protection interval.
         pump_since = pump_state.last_changed.timestamp() if pump_state else now.timestamp()
         plan = make_plan(now, temp, outside, forecast, self.config, self.model,
-                         pump_on, self.override, pump_on, pump_since) if temp is not None else []
+                         pump_on, self.override, pump_on, pump_since,
+                         bool(self.state("radiators") and self.state("radiators").state == "heat")) if temp is not None else []
         row = plan[0] if plan else None
         self.pump_heat_active = bool(row and row["heat_pump"])
         status = row["phase"] if row else "Raumsensor fehlt oder ist veraltet"

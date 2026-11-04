@@ -1,4 +1,4 @@
-import './heizungsmanager-card.js?v=0.2.4';
+import './heizungsmanager-card.js?v=0.2.5';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [
@@ -29,8 +29,8 @@ const SETTINGS = [
       {key:`${kind}_${phase}_sources`,label:`${label} · Wer soll heizen?`,options:[['both','Midea + Heizkörper'],['heat_pump','Midea'],['radiators','Heizkörper'],['off','Keine Wärmequelle']]}
     ])
   }]),
-  {title:'Nacht · Regelung',description:'Die Zieltemperatur der Nachtphase ist die Einschaltschwelle. Nachheizen nur bei Bedarf und nur mit den dort erlaubten Wärmequellen.',fields:[
-    {key:'night_reheat_hysteresis',label:'Nacht-Nachheizen · Hysterese (°C)',type:'number',min:0.1,max:1,step:0.1,hint:'Bei Ziel 18 °C und 0,3 °C Hysterese: Start unter 18 °C, regulär aus ab 18,3 °C. Taktschutz kann die Heizfreigabe verlängern.'}
+  {title:'Temperaturregelung · alle Heizungen',description:'Gilt für Midea und Heizkörper in allen vier Phasen, auch bei temporären Wunschtemperaturen. Innerhalb des Hysteresebands bleibt die bisherige Heizfreigabe erhalten.',fields:[
+    {key:'heating_hysteresis',label:'Gemeinsame Heiz-Hysterese (°C)',type:'number',min:0.1,max:1,step:0.1,hint:'Bei Soll 21 °C und Hysterese 0,3 °C: aus → ein erst unter 20,7 °C; ein → aus ab 21 °C. Nachts bei Soll 18 °C entsprechend unter 17,7 °C / aus ab 18 °C. Der Midea-Taktschutz bleibt zusätzlich aktiv.'}
   ]},
   {title:'Midea · Taktschutz',description:'Gilt tagsüber, nachts und bei Schnelländerungen. Schützt die Heizfreigabe des Managers; interne Verdichterzyklen regelt die Midea selbst. Tür-Heizpause, ungültige Sensoren und Aus haben Vorrang.',fields:[
     {key:'pump_min_on_minutes',label:'Mindestlaufzeit (Minuten)',type:'number',min:5,max:60,step:1,hint:'Standard 15 Minuten. Die Heizfreigabe bleibt kurz bestehen, auch wenn die Solltemperatur bereits erreicht ist. Der Geräte-Sollwert begrenzt die Wärmeabgabe.'},

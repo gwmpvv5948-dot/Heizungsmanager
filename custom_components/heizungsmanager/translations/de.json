@@ -20,7 +20,6 @@
           "primary_temperature_offset": "Korrektur primärer Sensor (°C)",
           "secondary_temperature_offset": "Korrektur zweiter Sensor (°C)",
           "temperature_smoothing_minutes": "Glättung: Zeitkonstante (Minuten, 0 = aus)",
-          "night_reheat_hysteresis": "Nacht-Nachheizen: Hysterese (°C)",
           "pump_min_on_minutes": "Midea: Mindestlaufzeit (Minuten)",
           "pump_min_off_minutes": "Midea: Mindestpause (Minuten)",
           "pump_overheat_margin": "Mindestlaufzeit abbrechen ab Soll + (°C)",
@@ -51,7 +50,8 @@
           "weekend_night_sources": "Sa–So · Nacht · Wärmequellen: heat_pump / radiators / both / off",
           "pump_daily_energy_sensor": "Midea: Energie-Tageszähler (optional)",
           "radiator_energy_sensor": "Heizkörper: Energiezähler (optional)",
-          "radiator_energy_period": "Heizkörper-Zählerart"
+          "radiator_energy_period": "Heizkörper-Zählerart",
+          "heating_hysteresis": "Gemeinsame Heiz-Hysterese für alle Phasen und Wärmequellen (°C)"
         }
       },
       "room": {
@@ -98,7 +98,6 @@
           "primary_temperature_offset": "Korrektur primärer Sensor (°C)",
           "secondary_temperature_offset": "Korrektur zweiter Sensor (°C)",
           "temperature_smoothing_minutes": "Glättung: Zeitkonstante (Minuten, 0 = aus)",
-          "night_reheat_hysteresis": "Nacht-Nachheizen: Hysterese (°C)",
           "pump_min_on_minutes": "Midea: Mindestlaufzeit (Minuten)",
           "pump_min_off_minutes": "Midea: Mindestpause (Minuten)",
           "pump_overheat_margin": "Mindestlaufzeit abbrechen ab Soll + (°C)",
@@ -129,7 +128,8 @@
           "weekend_night_sources": "Sa–So · Nacht · Wärmequellen: heat_pump / radiators / both / off",
           "pump_daily_energy_sensor": "Midea: Energie-Tageszähler (optional)",
           "radiator_energy_sensor": "Heizkörper: Energiezähler (optional)",
-          "radiator_energy_period": "Heizkörper-Zählerart"
+          "radiator_energy_period": "Heizkörper-Zählerart",
+          "heating_hysteresis": "Gemeinsame Heiz-Hysterese für alle Phasen und Wärmequellen (°C)"
         }
       }
     },

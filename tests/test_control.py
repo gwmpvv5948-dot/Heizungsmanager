@@ -164,7 +164,7 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
         night=NOW.replace(hour=23)
         dt.now=lambda:night
         for item in self.states.values():item.last_reported=night
-        self.states['sensor.wz_temp'].state='17.9'
+        self.states['sensor.wz_temp'].state='17.6'
         self.c.config['temperature_smoothing_minutes']=0
         self.c.mode='Automatik'
         await self.c.async_tick()
@@ -172,7 +172,7 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
         self.states['climate.wz_midea_ac'].state='heat'
         self.states['climate.wz_midea_ac'].attributes['temperature']=19
         self.service.reset_mock()
-        self.states['sensor.wz_temp'].state='18.3'
+        self.states['sensor.wz_temp'].state='18.0'
         await self.c.async_tick()
         self.assertFalse(self.c.data['plan'][0]['heat_pump'])
         self.assertTrue(any(c.args[1]=='set_hvac_mode' and c.args[2].get('entity_id')=='climate.wz_midea_ac' and c.args[2]['hvac_mode']=='off' for c in self.service.await_args_list))
@@ -232,7 +232,7 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
         dt.now=lambda:night
         for item in self.states.values():item.last_reported=night
         pump=self.states['climate.wz_midea_ac'];pump.last_changed=night-timedelta(minutes=1)
-        self.states['sensor.wz_temp'].state='17.9'
+        self.states['sensor.wz_temp'].state='17.6'
         await self.c.async_set_mode('Automatik')
         plan=self.c.data['plan']
         self.assertFalse(plan[0]['heat_pump'])
@@ -309,6 +309,59 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
     async def test_invalid_mode_cannot_change_state(self):
         with self.assertRaises(ValueError):await self.c.async_set_mode('invalid')
         self.assertEqual(self.c.mode,'Beobachten')
+
+    async def test_all_four_phases_hold_each_heater_inside_hysteresis_band(self):
+        for hour in (6,12,18,23):
+            with self.subTest(hour=hour):
+                self.setUp()
+                when=NOW.replace(hour=hour,minute=30)
+                dt.now=lambda:when
+                self.c.config.update(heating_hysteresis=.3,temperature_smoothing_minutes=0)
+                for kind in ('weekday','weekend'):
+                    for phase in ('morning','day','evening','night'):
+                        self.c.config[f'{kind}_{phase}_sources']='both'
+                        self.c.config[f'{kind}_{phase}_temperature']=21
+                for item in self.states.values():
+                    item.last_reported=when;item.last_changed=when-timedelta(minutes=30)
+                self.states['sensor.wz_temp'].state='20.8'
+                await self.c.async_set_mode('Automatik')
+                row=self.c.data['plan'][0]
+                self.assertFalse(row['heat_pump']);self.assertFalse(row['radiators'])
+                for key in ('climate.wz_midea_ac','climate.wz_vtherm'):self.states[key].state='heat'
+                await self.c.async_tick()
+                row=self.c.data['plan'][0]
+                self.assertTrue(row['heat_pump']);self.assertTrue(row['radiators'])
+                self.states['sensor.wz_temp'].state='21'
+                await self.c.async_tick()
+                row=self.c.data['plan'][0]
+                self.assertFalse(row['heat_pump']);self.assertFalse(row['radiators'])
+
+    async def test_hysteresis_starts_both_below_lower_threshold(self):
+        self.c.config.update(heating_hysteresis=.3,temperature_smoothing_minutes=0,weekday_day_sources='both')
+        self.states['sensor.wz_temp'].state='20.69'
+        await self.c.async_set_mode('Automatik')
+        row=self.c.data['plan'][0]
+        self.assertTrue(row['heat_pump']);self.assertTrue(row['radiators'])
+        self.assertEqual(row['switch_on_below'],20.7)
+        self.assertEqual(row['switch_off_at'],21)
+
+    async def test_each_source_has_independent_hysteresis_state(self):
+        self.c.config.update(heating_hysteresis=.3,weekday_day_sources='both')
+        self.states['sensor.wz_temp'].state='20.8'
+        self.states['climate.wz_vtherm'].state='heat'
+        await self.c.async_set_mode('Automatik')
+        row=self.c.data['plan'][0]
+        self.assertFalse(row['heat_pump']);self.assertTrue(row['radiators'])
+
+    async def test_quick_override_uses_common_hysteresis_for_radiators(self):
+        self.c.config.update(heating_hysteresis=.3,weekday_day_sources='radiators')
+        self.states['sensor.wz_temp'].state='19.8'
+        self.c.mode='Automatik'
+        await self.c.async_set_override(20,'1h')
+        self.assertFalse(self.c.data['plan'][0]['radiators'])
+        self.states['climate.wz_vtherm'].state='heat'
+        await self.c.async_tick()
+        self.assertTrue(self.c.data['plan'][0]['radiators'])
 
     async def test_failed_first_stop_still_attempts_other_device(self):
         for key in ('climate.wz_midea_ac','climate.wz_vtherm'): self.states[key].state='heat'

@@ -1,4 +1,4 @@
-# Heizungsmanager · 0.2.4
+# Heizungsmanager · 0.2.5
 
 Lokale Home-Assistant-Custom-Integration mit vier Heizphasen je Raum. Quellcode: [gwmpvv5948-dot/Heizungsmanager](https://github.com/gwmpvv5948-dot/Heizungsmanager). [Versionsübersicht](CHANGELOG.md).
 
@@ -12,7 +12,7 @@ Jeder Raum hat zwei vollständige Tagespläne: Montag–Freitag und Samstag–So
 
 Die Startzeiten müssen innerhalb einer Tagesgruppe aufsteigen. Jede Phase gilt bis zur nächsten. Die Freitagnacht bleibt am Samstag bis zur Morgenphase gültig; die Sonntagnacht entsprechend am Montag. Eine Quellenwahl ist eine Erlaubnis, kein permanenter Einschaltbefehl: Wärme wird nur bei Bedarf angefordert. Ausgeschlossene Quellen werden am Phasenwechsel abgeschaltet, auch während einer Midea-Mindestlaufzeit. Bei „keine“ heizt der Manager auch unterhalb der Zieltemperatur nicht.
 
-Nachts startet die Midea bei Unterschreitung des Nachtziels und beendet regulär bei Ziel + Hysterese (Standard 0,3 °C). Der Taktschutz kann die Freigabe verlängern oder einen Neustart verzögern. Bei ausschließlich Heizkörpern erfolgt die Regelung ebenfalls nach Raumtemperatur.
+Alle Wärmequellen nutzen in allen Phasen dieselbe einstellbare Hysterese je Raum: ausgeschaltet startet die Freigabe erst unter Soll minus Hysterese, eingeschaltet endet sie ab Soll. Beispiel 21 °C / 0,3 °C: Start unter 20,7 °C, aus ab 21 °C. Das gilt auch für temporäre Wünsche und nachts: bei 18 °C / 0,3 °C beginnt Nachheizen erst unter 17,7 °C und endet ab 18 °C. Im Hystereseband wird der tatsächliche Heizmodus der jeweiligen Quelle beibehalten, auch nach einem HA-Neustart. Der Midea-Taktschutz kann die Freigabe verlängern oder einen Neustart verzögern. Interne Verdichter-/VTherm-Ventilzyklen regeln Gerät und VTherm selbst.
 
 Der 24-h-Fahrplan zeigt die vier Phasen mit Solltemperatur und erlaubten Quellen. Die Temperaturprognose hat ein 10-Minuten-Raster und zusätzliche Punkte an exakten Phasenwechseln und am Ende einer Schnelländerung. Geregelt wird alle 30 Sekunden sowie bei Zustandsänderungen. Temperaturen und Heizbedarf bleiben Modellschätzungen.
 
@@ -82,3 +82,7 @@ Jeder Raum zeigt unter den Gerätekacheln den Verbrauch seit Mitternacht in der 
 Wohnzimmer-Heizkörper: `sensor.wz_verbrauch_heizung` (Tageszähler). Arbeitszimmer: `sensor.az_vtherm_energy` (fortlaufender Zähler). Für fortlaufende Zähler liest das Panel über die lokale HA-History-API den Zustand zu Tagesbeginn und die Änderungen seitdem; beobachtete Rücksetzungen werden berücksichtigt. Die Historie wird höchstens einmal pro Minute angefragt, aktuelle Zählerstände aktualisieren die Anzeige direkt. Wh und MWh werden in kWh umgerechnet. Ohne gültigen Tagesbeginn-Zählerstand oder bei fehlender Historie wird kein Wert erfunden; Historielücken werden kenntlich gemacht. Es wird keine neue Datenbank angelegt und kein Utility Meter erstellt.
 
 Die Quellen und die Art des Heizkörper-Zählers (Tageszähler/fortlaufend) lassen sich je Raum unter Einstellungen → Verbrauchsanzeige ändern. Leere optionale Quellen blenden die jeweilige Verbrauchskachel aus. Die verwendeten Heizkörperwerte sind VTherm-Schätzungen, keine Wärmemengenzähler. Midea-Strom und Heizkörper-Schätzenergie sind unterschiedliche Datengrundlagen: die gemeinsame kWh-Skala ist eine zeitlich einheitliche Übersicht, kein direkter Effizienz-, COP- oder Kostenvergleich; die Werte werden nicht addiert. Siehe [VTherm-Referenz](https://www.versatile-thermostat.org/en/docs/reference/).
+
+## Hysterese ab 0.2.5
+
+Unter Einstellungen → Temperaturregelung · alle Heizungen gilt `heating_hysteresis` je Raum für Midea und Heizkörper, in Morgens/Tag/Abend/Nacht und bei Schnelländerungen. Bestehende Werte von `night_reheat_hysteresis` werden bei der Migration übernommen. Es gibt keine separate Nacht-Hysterese mehr. Die Nacht-Zieltemperatur ist jetzt die Abschaltschwelle; der Start liegt um die konfigurierte Hysterese darunter. Ein Soll von 18 °C garantiert deshalb keine Untergrenze von 18 °C. Quellenwahl, Aus, Fenster-/Türpause, Sensorfehler und manuelle Pause haben weiterhin Vorrang; Mindestlaufzeit/-pause und Übertemperaturschutz der Midea bleiben bestehen.

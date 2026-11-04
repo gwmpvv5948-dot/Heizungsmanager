@@ -91,6 +91,7 @@ def normalize_config(config):
     result = dict(config)
     room = result.setdefault("room_id", "wohnzimmer")
     result["room_name"] = ROOMS.get(room, room)
+    result.setdefault("heating_hysteresis", config.get("night_reheat_hysteresis", 0.3))
     result.setdefault("pump_daily_energy_sensor", "sensor.tasmota_energy_today_2" if room == "wohnzimmer" else "")
     result.setdefault("radiator_energy_sensor", {"wohnzimmer": "sensor.wz_verbrauch_heizung", "arbeitszimmer": "sensor.az_vtherm_energy"}.get(room, ""))
     result.setdefault("radiator_energy_period", "daily" if room == "wohnzimmer" else "total")
@@ -142,9 +143,9 @@ def decision(now, temp, outside, config, model):
     return target, label, sources in ("both", "radiators"), f"{label}: {target:.1f} °C · {SOURCES[sources]}"
 
 
-def night_reheat(temp, target, active, hysteresis):
-    """Start strictly below the floor; finish at the upper hysteresis boundary."""
-    return temp < target + hysteresis if active else temp < target
+def heat_demand(temp, target, active, hysteresis):
+    """Room-wide Schmitt trigger: start below target-gap, stop at target."""
+    return temp < target if active else temp < target - hysteresis
 
 
 def next_schedule_time(now, config):
@@ -175,12 +176,13 @@ def cycle_guard(now, requested, active, since, config, temperature, target):
 
 
 def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_active=False, override=None,
-              pump_state=None, pump_state_since=None):
+              pump_state=None, pump_state_since=None, radiators_state=False):
     config = normalize_config(config)
     rows = []
     predicted = temp
     active = pump_heat_active if pump_state is None else pump_state
     since = now.timestamp() - 86400 if pump_state_since is None else pump_state_since
+    rad_active = radiators_state
     # Include exact phase/override boundaries in addition to the 10-minute grid.
     horizon = now.timestamp() + 86400
     stamps = {now.timestamp() + step * 600 for step in range(145)}
@@ -205,24 +207,14 @@ def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_act
             target = override["temperature"]
             phase = "Temporär"
             reason = f"Temporäre Wunschtemperatur {target:.1f} °C; anschließend automatisch zurück zum Zeitplan"
-        enabled = True
+        hysteresis = config["heating_hysteresis"]
         control_target = target
-        if phase_key == "night" and not override_active:
-            hysteresis = config.get("night_reheat_hysteresis", 0.3)
-            pump_heat_active = night_reheat(predicted, target, pump_heat_active, hysteresis)
-            enabled = pump_heat_active
-            # A little device headroom lets the external room-based cutoff be reached.
-            control_target = target + hysteresis + 0.5 if enabled else target
-            reason = (f"Nacht-Nachheizen bis {target + hysteresis:.1f} °C, danach Midea aus" if enabled else
-                f"Midea aus; Nachheizen erst unter {target:.1f} °C")
-        else:
-            # Daytime and quick overrides: no heat command above the room target.
-            pump_heat_active = predicted < target if pump_heat_active else predicted < target - 0.2
-            enabled = pump_heat_active
-            if not enabled:
-                reason += f" · Kein Heizbedarf: Midea aus; Start erst unter {target - 0.2:.1f} °C"
+        pump_heat_active = heat_demand(predicted, target, pump_heat_active, hysteresis)
+        rad_active = heat_demand(predicted, target, rad_active, hysteresis) and sources in ("both", "radiators")
+        enabled = pump_heat_active
+        reason += f" · Hysterese {hysteresis:.1f} °C: Start unter {target - hysteresis:.1f} °C, aus ab {target:.1f} °C"
         if sources not in ("both", "heat_pump"):
-            reason = f"{phase}: {target:.1f} °C · {SOURCES[sources]}; Midea nicht freigegeben"
+            reason += "; Midea nicht freigegeben"
         requested = enabled and sources in ("both", "heat_pump")
         enabled, protection, remaining = cycle_guard(
             when.timestamp(), requested, active, since, config, predicted, target)
@@ -237,11 +229,12 @@ def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_act
             active = enabled
         pump_heat_active = enabled
         # Radiators also stop when the target is reached, in every phase.
-        rad = 1.0 if sources in ("both", "radiators") and predicted < target - 0.15 else 0.0
+        rad = 1.0 if rad_active else 0.0
         required = (control_target - predicted) * 3 + model.loss * (predicted - outside) - model.radiator_gain * rad
         pump = max(0.0, min(1.0, required / model.pump_gain)) if enabled else 0.0
         rows.append({"time": when.isoformat(), "target": target, "temperature": round(predicted, 2),
                      "scheduled_target": scheduled_target, "override_active": override_active,
+                     "hysteresis": hysteresis, "switch_on_below": round(target - hysteresis, 2), "switch_off_at": target,
                      "outdoor": round(outside, 1), "weather_source": source,
                      "phase": phase, "phase_key": phase_key, "sources": sources,
                      "radiators": bool(rad), "heat_pump": enabled,

@@ -37,7 +37,7 @@ def schema(values):
                 selector.NumberSelectorConfig(min=7, max=24, step=0.5, mode="box"))
             fields[vol.Required(prefix + "sources", default=values[prefix + "sources"])] = vol.In(SOURCES)
     for key, low, high, step in (("primary_temperature_weight", 1, 99, 1),
-                                ("night_reheat_hysteresis", 0.1, 1.0, 0.1),
+                                ("heating_hysteresis", 0.1, 1.0, 0.1),
                                 ("pump_min_on_minutes", 5, 60, 1),
                                 ("pump_min_off_minutes", 5, 60, 1),
                                 ("pump_overheat_margin", 0.3, 2.0, 0.1),

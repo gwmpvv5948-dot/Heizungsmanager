@@ -103,11 +103,11 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(self.model.pump_samples,1)
         self.assertEqual(self.model.radiator_samples,1)
 
-    def test_night_threshold_hysteresis(self):
-        self.assertFalse(m.night_reheat(18,18,False,.3))
-        self.assertTrue(m.night_reheat(17.9,18,False,.3))
-        self.assertTrue(m.night_reheat(18.1,18,True,.3))
-        self.assertFalse(m.night_reheat(18.3,18,True,.3))
+    def test_common_hysteresis_thresholds(self):
+        self.assertFalse(m.heat_demand(20.7,21,False,.3))
+        self.assertTrue(m.heat_demand(20.69,21,False,.3))
+        self.assertTrue(m.heat_demand(20.9,21,True,.3))
+        self.assertFalse(m.heat_demand(21,21,True,.3))
 
     def test_override_expires_in_plan_without_changing_schedule(self):
         now=datetime(2026,11,4,12,tzinfo=TZ)
@@ -135,7 +135,19 @@ class ModelTests(unittest.TestCase):
         self.assertLess(plan[1]['temperature'],18.1)
         active=[p for p in plan if p['phase']=='Nacht' and p['heat_pump']]
         self.assertTrue(active)
-        self.assertIn('Nachheizen',active[0]['reason'])
+        self.assertIn('Hysterese',active[0]['reason'])
+
+    def test_legacy_night_hysteresis_migrates_without_overwriting_new_setting(self):
+        raw={**self.cfg,'night_reheat_hysteresis':.6}
+        self.assertEqual(m.normalize_config(raw)['heating_hysteresis'],.6)
+        raw['heating_hysteresis']=.4
+        self.assertEqual(m.normalize_config(raw)['heating_hysteresis'],.4)
+
+    def test_forecast_radiator_latch_retains_active_source_inside_band(self):
+        now=datetime(2026,11,4,12,tzinfo=TZ)
+        cfg={**m.normalize_config(self.cfg),'weekday_day_sources':'radiators','heating_hysteresis':.3}
+        self.assertFalse(m.make_plan(now,20.8,5,[],cfg,self.model)[0]['radiators'])
+        self.assertTrue(m.make_plan(now,20.8,5,[],cfg,self.model,radiators_state=True)[0]['radiators'])
 
     def test_untrusted_numbers_and_saved_model(self):
         for value in ['nan','inf',None,{},102.5]:
