@@ -1,4 +1,4 @@
-# Heizungsmanager · 0.2.6
+# Heizungsmanager · 0.2.7
 
 Lokale Home-Assistant-Custom-Integration mit vier Heizphasen je Raum. Quellcode: [gwmpvv5948-dot/Heizungsmanager](https://github.com/gwmpvv5948-dot/Heizungsmanager). [Versionsübersicht](CHANGELOG.md).
 
@@ -90,3 +90,9 @@ Unter Einstellungen → Temperaturregelung · alle Heizungen gilt `heating_hyste
 ## Midea-Kachel ab 0.2.6
 
 Die Midea-Kachel zeigt die aktuelle gemessene elektrische Leistung aus dem je Raum konfigurierten Leistungssensor (W oder kW, in W angezeigt). Fehlende Werte erscheinen als Strich. Das Lüftermodus-Dropdown enthält ausschließlich die vom physischen Gerät in `fan_modes` gemeldeten Optionen und zeigt den gemeldeten aktuellen Modus. Die Auswahl sendet gezielt `climate.set_fan_mode` an dieses Gerät; HVAC-Modus und Solltemperatur werden dabei nicht geändert. Die Automatik bleibt aktiv. Interne Geräte-/VTherm-Regelungen können den Modus weiterhin beeinflussen. Bei nicht verfügbarem Gerät oder fehlenden unterstützten Modi ist die Auswahl deaktiviert. Die Auswahl bleibt während Live-Updates bedienbar; Fehler werden in der Kachel angezeigt.
+
+## Midea-Sollwertkorrektur ab 0.2.7
+
+Je Raum ist unter Einstellungen → Midea · Sollwertkorrektur ein positiver Geräte-Offset einstellbar (0–3 °C, 0,5-°C-Schritte; Standard +0,5 °C). Bei 21 °C Raumziel erhält der Midea-Regler 21,5 °C als Geräte-Soll. Das gilt für alle vier Phasen und Schnelländerungen. Heizkörper erhalten weiterhin das ursprüngliche Raumziel. Bei ausgeschlossener Midea bleibt sie ausgeschaltet.
+
+Die Schaltentscheidung, Hysterese und Midea-Übertemperaturgrenze beziehen sich weiterhin auf das Raumziel. Der Offset verschiebt keine Schaltschwelle und ist kein höheres Raumziel. Die Prognose weist den Midea-Geräte-Sollwert aus, setzt die höhere Gerätevorgabe aber nicht mit einer entsprechend höheren gewünschten Raumtemperatur oder pauschal zusätzlicher Heizleistung gleich; Heizbeiträge werden weiter aus realen Daten gelernt. Die bisherige Temperaturbegrenzung und Rundung auf die Geräteschrittweite bleibt aktiv. Die Midea-Kachel zeigt tatsächliches Geräte-Soll, Raumziel und Offset getrennt. Wert 0 deaktiviert den Ausgleich.

@@ -149,6 +149,21 @@ class ModelTests(unittest.TestCase):
         self.assertFalse(m.make_plan(now,20.8,5,[],cfg,self.model)[0]['radiators'])
         self.assertTrue(m.make_plan(now,20.8,5,[],cfg,self.model,radiators_state=True)[0]['radiators'])
 
+    def test_offset_changes_only_device_setpoint_in_all_phases(self):
+        for hour in (6,12,18,23):
+            now=datetime(2026,11,4,hour,30,tzinfo=TZ)
+            for offset in (0,.5,1.5):
+                cfg={**self.cfg,'pump_temperature_offset':offset}
+                row=m.make_plan(now,17,5,[],cfg,self.model)[0]
+                self.assertEqual(row['control_target'],row['target']+offset)
+                self.assertEqual(row['switch_off_at'],row['target'])
+
+    def test_offset_does_not_inflate_room_temperature_forecast(self):
+        now=datetime(2026,11,4,12,tzinfo=TZ)
+        plans=[m.make_plan(now,20,5,[],{**self.cfg,'pump_temperature_offset':offset},self.model) for offset in (0,.5,2)]
+        self.assertEqual([row['temperature'] for row in plans[0]],[row['temperature'] for row in plans[1]])
+        self.assertEqual([row['temperature'] for row in plans[0]],[row['temperature'] for row in plans[2]])
+
     def test_untrusted_numbers_and_saved_model(self):
         for value in ['nan','inf',None,{},102.5]:
             self.assertIsNone(m.finite(value,-30,45))

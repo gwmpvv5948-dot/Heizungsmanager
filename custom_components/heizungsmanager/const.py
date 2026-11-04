@@ -21,6 +21,7 @@ DEFAULTS = {
     "pump_min_on_minutes": 15,
     "pump_min_off_minutes": 15,
     "pump_overheat_margin": 0.5,
+    "pump_temperature_offset": 0.5,
     "max_preheat_minutes": 120,
     "morning_support_minutes": 45,
     "window_delay_seconds": 30,

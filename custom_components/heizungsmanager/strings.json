@@ -51,7 +51,8 @@
           "pump_daily_energy_sensor": "Midea: Energie-Tageszähler (optional)",
           "radiator_energy_sensor": "Heizkörper: Energiezähler (optional)",
           "radiator_energy_period": "Heizkörper-Zählerart",
-          "heating_hysteresis": "Gemeinsame Heiz-Hysterese für alle Phasen und Wärmequellen (°C)"
+          "heating_hysteresis": "Gemeinsame Heiz-Hysterese für alle Phasen und Wärmequellen (°C)",
+          "pump_temperature_offset": "Midea: Geräte-Sollwert-Offset (°C)"
         }
       },
       "room": {
@@ -129,7 +130,8 @@
           "pump_daily_energy_sensor": "Midea: Energie-Tageszähler (optional)",
           "radiator_energy_sensor": "Heizkörper: Energiezähler (optional)",
           "radiator_energy_period": "Heizkörper-Zählerart",
-          "heating_hysteresis": "Gemeinsame Heiz-Hysterese für alle Phasen und Wärmequellen (°C)"
+          "heating_hysteresis": "Gemeinsame Heiz-Hysterese für alle Phasen und Wärmequellen (°C)",
+          "pump_temperature_offset": "Midea: Geräte-Sollwert-Offset (°C)"
         }
       }
     },

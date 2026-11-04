@@ -198,7 +198,7 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
         row=self.c.data['plan'][0]
         self.assertTrue(row['heat_pump'])
         self.assertFalse(row['requested_heat_pump'])
-        self.assertEqual(row['control_target'],21)
+        self.assertEqual(row['control_target'],21.5)
         self.assertEqual(row['cycle_protection'],'Mindestlaufzeit')
         self.assertFalse(any(c.args[1]=='set_hvac_mode' and c.args[2]['hvac_mode']=='off' and c.args[2]['entity_id']==pump.entity_id for c in self.service.await_args_list))
 
@@ -362,6 +362,28 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
         self.states['climate.wz_vtherm'].state='heat'
         await self.c.async_tick()
         self.assertTrue(self.c.data['plan'][0]['radiators'])
+
+    async def test_midea_offset_is_commanded_without_changing_radiator_target(self):
+        self.c.config.update(weekday_day_sources='both',pump_temperature_offset=.5)
+        await self.c.async_set_mode('Automatik')
+        targets={call.args[2]['entity_id']:call.args[2]['temperature'] for call in self.service.await_args_list if call.args[1]=='set_temperature'}
+        self.assertEqual(targets['climate.wz_midea_ac'],21.5)
+        self.assertEqual(targets['climate.wz_vtherm'],21)
+        self.assertEqual(self.c.data['target'],21)
+
+    async def test_quick_override_applies_midea_offset(self):
+        self.c.mode='Automatik';self.c.config['pump_temperature_offset']=1
+        await self.c.async_set_override(20,'1h')
+        self.assertEqual(self.c.data['target'],20)
+        self.assertEqual(self.c.data['plan'][0]['control_target'],21)
+
+    async def test_midea_offset_does_not_raise_switch_off_threshold(self):
+        self.c.config['pump_temperature_offset']=2
+        self.states['sensor.wz_temp'].state='21'
+        self.states['climate.wz_midea_ac'].state='heat'
+        await self.c.async_set_mode('Automatik')
+        self.assertFalse(self.c.data['plan'][0]['heat_pump'])
+        self.assertEqual(self.c.data['plan'][0]['switch_off_at'],21)
 
     async def test_failed_first_stop_still_attempts_other_device(self):
         for key in ('climate.wz_midea_ac','climate.wz_vtherm'): self.states[key].state='heat'

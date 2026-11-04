@@ -1,3 +1,9 @@
+## 0.2.7
+
+- Einstellbarer Midea-Geräte-Sollwert-Offset je Raum (Standard +0,5 °C, 0–3 °C).
+- Offset bei allen Phasen und Schnelländerungen an die Midea weitergeben; Heizkörper und raumbezogene Hysterese-/Abschaltgrenzen unverändert verwenden.
+- Geräte-Soll, Raumziel und Offset in der Midea-Kachel getrennt darstellen; Geräte-Soll auch im Fahrplan erklären.
+
 ## 0.2.6
 
 - Aktuelle gemessene Leistung direkt in der Midea-Kachel anzeigen, W/kW korrekt umrechnen.

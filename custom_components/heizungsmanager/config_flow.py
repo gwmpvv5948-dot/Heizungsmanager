@@ -41,6 +41,7 @@ def schema(values):
                                 ("pump_min_on_minutes", 5, 60, 1),
                                 ("pump_min_off_minutes", 5, 60, 1),
                                 ("pump_overheat_margin", 0.3, 2.0, 0.1),
+                                ("pump_temperature_offset", 0, 3.0, 0.5),
                                 ("primary_temperature_offset", -3, 3, 0.1),
                                 ("secondary_temperature_offset", -3, 3, 0.1),
                                 ("temperature_smoothing_minutes", 0, 15, 1),
