@@ -1,3 +1,9 @@
+## 0.2.2
+
+- Kleine Live-Statuskacheln je zugeordnetem Heizkörper und Midea: Ventil-Schließgrad, Heizmodus, Aktivität, Regler-Modus, Geräte-Soll und Midea-Lüftermodus.
+- Automatische Raumzuordnung über die unterliegenden VTherm-Geräte; reine Anzeige ohne zusätzliche Gerätebefehle.
+- Ventilwerte ausdrücklich als Regler-Schließvorgaben beschriftet; fehlende Werte werden nicht als 0 % ausgegeben.
+
 ## 0.2.1
 
 - Gewählte Betriebsart sofort je Raum speichern und nach HA-Neustart wiederherstellen.
