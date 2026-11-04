@@ -1,4 +1,4 @@
-import './heizungsmanager-card.js?v=0.2.2';
+import './heizungsmanager-card.js?v=0.2.3';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [
@@ -54,7 +54,19 @@ class HeizungsmanagerPanel extends HTMLElement {
     if(!this.isConnected || !this._hass || !this.entryId || this._loaded || this._loading || this._failed) return;
     this._loading=true;
     try {
-      this.settings=await this._hass.callWS({type:'heizungsmanager/config',entry_id:this.entryId});
+      let settings=await this._hass.callWS({type:'heizungsmanager/config',entry_id:this.entryId});
+      if(!this._roomRestored) {
+        let remembered;
+        try {remembered=window.localStorage.getItem('heizungsmanager.selectedRoom');} catch {}
+        // Validate against currently configured rooms before loading a saved choice.
+        if(remembered && remembered!==this.entryId && settings.rooms?.some(room=>room.entry_id===remembered)) {
+          settings=await this._hass.callWS({type:'heizungsmanager/config',entry_id:remembered});
+          this.selectedEntry=remembered;
+        }
+        this._roomRestored=true;
+      }
+      this.settings=settings;
+      try {window.localStorage.setItem('heizungsmanager.selectedRoom',this.entryId);} catch {}
       this.draft={...this.settings.config}; this._loaded=true; this.render();
     } catch(err) { this._failed=true; this.shadowRoot.innerHTML=`<div style="padding:24px"><p>Heizungsmanager konnte nicht geladen werden: ${escapeHTML(err.message || err)}</p><button>Erneut laden</button></div>`; this.shadowRoot.querySelector('button').addEventListener('click',()=>{this._failed=false;this.maybeLoad();}); }
     finally { this._loading=false; }

@@ -1,3 +1,8 @@
+## 0.2.3
+
+- Zuletzt gewählten Raum pro Browser merken und nach Seitenneuladen wiederherstellen.
+- Gespeicherte Auswahl gegen vorhandene Räume prüfen; fehlende Browser-Speicherung blockiert das Panel nicht.
+
 ## 0.2.2
 
 - Kleine Live-Statuskacheln je zugeordnetem Heizkörper und Midea: Ventil-Schließgrad, Heizmodus, Aktivität, Regler-Modus, Geräte-Soll und Midea-Lüftermodus.

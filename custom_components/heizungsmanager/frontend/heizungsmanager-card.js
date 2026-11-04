@@ -1,4 +1,4 @@
-import {equipmentStatus} from './equipment.js?v=0.2.2';
+import {equipmentStatus} from './equipment.js?v=0.2.3';
 /* Local Lovelace card. No CDN, remote fonts or remote scripts. */
 const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const clock = value => new Date(value).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});

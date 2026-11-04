@@ -1,4 +1,4 @@
-# Heizungsmanager · 0.2.2
+# Heizungsmanager · 0.2.3
 
 Lokale Home-Assistant-Custom-Integration mit vier Heizphasen je Raum. Quellcode: [gwmpvv5948-dot/Heizungsmanager](https://github.com/gwmpvv5948-dot/Heizungsmanager). [Versionsübersicht](CHANGELOG.md).
 
@@ -72,3 +72,5 @@ Startplan: Mo–Fr Morgens 06:20, Tag 07:05, Abend 17:00, Nacht 22:00; Sa–So M
 Im Fahrplan zeigt jeder Raum kleine, ausschließlich lesende Gerätekacheln. Die dem zugeordneten VTherm unterliegenden Climate-Entitäten bestimmen die Heizkörper/Midea automatisch; es werden keine fremden Räume durchsucht. Wohnzimmer: WZ1, WZ2 und Midea; Arbeitszimmer: AZ-Heizkörper. Je Kachel erscheinen Geräte-Heizmodus, gemeldete Aktivität, Regler-Modus und Geräte-Solltemperatur. Die Midea zeigt zusätzlich den aktuellen Lüftermodus des physischen Geräts.
 
 Heizkörper zeigen den gemeldeten Wert von `number.<thermostat>_valve_closing_degree` als **Ventil-Schließgrad · Reglerwert**. Das ist eine Schließvorgabe, keine Messung der mechanischen Position. Öffnungs- und Schließvorgaben sind unterschiedliche Regelparameter; deshalb wird daraus keine vermeintlich gemessene Öffnung durch `100 − Schließgrad` berechnet. Siehe [Zigbee2MQTT TRVZB](https://www.zigbee2mqtt.io/devices/TRVZB.html#valve-closing-degree-numeric). Fehlende/unverfügbare Werte erscheinen als Strich, nicht als 0 %. Statusänderungen aktualisieren die Kacheln direkt über die HA-Zustände, unabhängig vom Planungsintervall.
+
+Die zuletzt erfolgreich gewählte Raumauswahl wird lokal im jeweiligen Browser gespeichert und nach Seitenneuladen oder erneutem Öffnen wiederhergestellt. Entfernte Räume werden dabei übersprungen; wenn Browser-Speicherung nicht verfügbar ist, bleibt die Raumauswahl weiterhin bedienbar. Die Präferenz wird nicht zwischen Geräten synchronisiert.
