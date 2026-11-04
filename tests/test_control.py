@@ -46,7 +46,7 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
         self.states={
             'sensor.wz_temp':state('sensor.wz_temp','19',unit_of_measurement='°C'),
             'binary_sensor.wz_terasse':state('binary_sensor.wz_terasse','off'),
-            'climate.wz_midea_ac':state('climate.wz_midea_ac','off',hvac_modes=['off','heat'],temperature=18,min_temp=16,max_temp=30,target_temp_step=.5,hvac_action='off'),
+            'climate.wz_midea_ac':state('climate.wz_midea_ac','off',hvac_modes=['off','heat'],temperature=18,min_temp=16,max_temp=30,target_temp_step=.5,hvac_action='off',fan_modes=['auto','low','medium','high','silent','turbo'],fan_mode='turbo'),
             'climate.wz_vtherm':state('climate.wz_vtherm','off',hvac_modes=['off','heat'],temperature=18,min_temp=7,max_temp=24,target_temp_step=.1,valve_open_percent=0,hvac_action='off')}
         self.service=AsyncMock()
         hass=types.SimpleNamespace(states=types.SimpleNamespace(get=self.states.get),services=types.SimpleNamespace(async_call=self.service))
@@ -384,6 +384,64 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
         await self.c.async_set_mode('Automatik')
         self.assertFalse(self.c.data['plan'][0]['heat_pump'])
         self.assertEqual(self.c.data['plan'][0]['switch_off_at'],21)
+
+    async def test_automatic_start_sets_medium_after_heat_mode(self):
+        await self.c.async_set_mode('Automatik')
+        calls=[call.args for call in self.service.await_args_list]
+        heat=next(i for i,args in enumerate(calls) if args[1]=='set_hvac_mode' and args[2].get('entity_id')=='climate.wz_midea_ac' and args[2]['hvac_mode']=='heat')
+        fan=next(i for i,args in enumerate(calls) if args[1]=='set_fan_mode')
+        self.assertGreater(fan,heat)
+        self.assertEqual(calls[fan][2],{'entity_id':'climate.wz_midea_ac','fan_mode':'medium'})
+
+    async def test_running_manual_fan_is_retained_until_next_start(self):
+        pump=self.states['climate.wz_midea_ac']
+        await self.c.command('heat_pump','heat',21.5)
+        pump.state='heat';pump.attributes.update(temperature=21.5,fan_mode='low')
+        self.service.reset_mock()
+        await self.c.command('heat_pump','heat',22)
+        self.assertFalse(any(c.args[1]=='set_fan_mode' for c in self.service.await_args_list))
+        await self.c.command('heat_pump','off',7)
+        pump.state='off';self.service.reset_mock()
+        await self.c.command('heat_pump','heat',21.5)
+        self.assertTrue(any(c.args[1]=='set_fan_mode' and c.args[2]['fan_mode']=='medium' for c in self.service.await_args_list))
+
+    async def test_start_fan_uses_physical_device(self):
+        pump=self.states['climate.wz_midea_ac']
+        pump.attributes['vtherm_over_climate']={'underlying_entities':['climate.midea']}
+        self.states['climate.midea']=state('climate.midea','heat',fan_modes=['low','medium','turbo'],fan_mode='turbo')
+        await self.c.async_set_mode('Automatik')
+        fans=[c.args[2] for c in self.service.await_args_list if c.args[1]=='set_fan_mode']
+        self.assertEqual(fans,[{'entity_id':'climate.midea','fan_mode':'medium'}])
+
+    async def test_no_fan_command_when_there_is_no_heat_demand(self):
+        self.states['sensor.wz_temp'].state='22'
+        await self.c.async_set_mode('Automatik')
+        self.assertFalse(any(c.args[1]=='set_fan_mode' for c in self.service.await_args_list))
+
+    async def test_start_fan_error_is_reported_and_retried(self):
+        async def services(domain,service,data,**kwargs):
+            if service=='set_fan_mode':raise RuntimeError('Lüfter nicht erreichbar')
+        self.service.side_effect=services
+        await self.c.async_set_mode('Automatik')
+        self.assertIn('Lüfter nicht erreichbar',self.c.data['error'])
+        self.assertFalse(self.c._pump_heat_commanded)
+        self.service.side_effect=None;self.service.reset_mock()
+        await self.c.async_tick()
+        self.assertTrue(self.c._pump_heat_commanded)
+        self.assertTrue(any(c.args[1]=='set_fan_mode' for c in self.service.await_args_list))
+
+    async def test_medium_is_not_sent_during_minimum_pause(self):
+        self.states['climate.wz_midea_ac'].last_changed=NOW-timedelta(minutes=1)
+        await self.c.async_set_mode('Automatik')
+        self.assertFalse(any(c.args[1]=='set_fan_mode' for c in self.service.await_args_list))
+
+    async def test_running_midea_is_adopted_once_without_repeated_fan_commands(self):
+        pump=self.states['climate.wz_midea_ac'];pump.state='heat';pump.attributes['temperature']=21.5
+        await self.c.async_set_mode('Automatik')
+        self.assertTrue(any(c.args[1]=='set_fan_mode' for c in self.service.await_args_list))
+        pump.attributes['fan_mode']='low';self.service.reset_mock()
+        await self.c.async_tick()
+        self.assertFalse(any(c.args[1]=='set_fan_mode' for c in self.service.await_args_list))
 
     async def test_failed_first_stop_still_attempts_other_device(self):
         for key in ('climate.wz_midea_ac','climate.wz_vtherm'): self.states[key].state='heat'

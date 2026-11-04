@@ -40,6 +40,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
         self.last_save = 0
         self.room_temperature = RoomTemperature()
         self.pump_heat_active = False
+        self._pump_heat_commanded = False
         self.override = None
 
     async def async_initialize(self):
@@ -92,6 +93,8 @@ class HeatingCoordinator(DataUpdateCoordinator):
         if mode not in ("Beobachten", "Automatik", "Aus"):
             raise ValueError("Ungültige Betriebsart")
         async with self.lock:
+            if mode != self.mode:
+                self._pump_heat_commanded = False
             self.mode = mode
             self.manual_until = None
             self.commands = {}
@@ -102,7 +105,10 @@ class HeatingCoordinator(DataUpdateCoordinator):
 
     async def async_apply_options(self):
         async with self.lock:
+            previous_pump = self.config.get("heat_pump")
             self.config = normalize_config({**DEFAULTS, **self.entry.data, **self.entry.options})
+            if self.config.get("heat_pump") != previous_pump:
+                self._pump_heat_commanded = False
             self.manual_until = None
             self.commands = {}
             self.previous = None
@@ -216,6 +222,24 @@ class HeatingCoordinator(DataUpdateCoordinator):
                 self.previous = None
                 return
 
+    async def set_start_fan_medium(self, controller):
+        """Apply the start default after HVAC activation, using the actual device."""
+        details = controller.attributes.get("vtherm_over_climate") or {}
+        devices = details.get("underlying_entities") if isinstance(details, dict) else None
+        devices = devices or controller.attributes.get("underlying_entities")
+        if not isinstance(devices, list) or not devices:
+            devices = [controller.entity_id]
+        for entity_id in devices:
+            device = self.hass.states.get(entity_id)
+            if device is None or device.state in ("unknown", "unavailable"):
+                raise ValueError(f"Midea-Lüfter: {entity_id} nicht verfügbar")
+            modes = device.attributes.get("fan_modes", [])
+            if "medium" not in modes:
+                raise ValueError(f"{entity_id} unterstützt Lüftermodus Mittel nicht")
+            if device.attributes.get("fan_mode") != "medium":
+                await self.hass.services.async_call("climate", "set_fan_mode",
+                    {"entity_id": entity_id, "fan_mode": "medium"}, blocking=True)
+
     async def command(self, key, mode, target):
         if not self.config.get(key):
             return
@@ -224,6 +248,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
             raise ValueError(f"{self.config[key]} nicht verfügbar")
         if mode not in state.attributes.get("hvac_modes", []):
             raise ValueError(f"{self.config[key]} unterstützt {mode} nicht")
+        starting_pump = key == "heat_pump" and mode == "heat" and (state.state != "heat" or not self._pump_heat_commanded)
         changed = False
         if mode != "off":
             low, high = state.attributes.get("min_temp", 7), state.attributes.get("max_temp", 30)
@@ -242,6 +267,14 @@ class HeatingCoordinator(DataUpdateCoordinator):
         previous = self.commands.get(key)
         stamp = dt_util.now().timestamp() if changed or previous is None else previous[2]
         self.commands[key] = (mode, target, stamp)
+        if key == "heat_pump":
+            if mode != "heat":
+                self._pump_heat_commanded = False
+            elif starting_pump:
+                # Failed fan requests are retried; a running manual fan choice is retained.
+                self._pump_heat_commanded = False
+                await self.set_start_fan_medium(self.hass.states.get(state.entity_id) or state)
+                self._pump_heat_commanded = True
 
     async def stop_both(self):
         errors = []

@@ -1,4 +1,4 @@
-# Heizungsmanager · 0.2.8
+# Heizungsmanager · 0.2.9
 
 Lokale Home-Assistant-Custom-Integration mit vier Heizphasen je Raum. Quellcode: [gwmpvv5948-dot/Heizungsmanager](https://github.com/gwmpvv5948-dot/Heizungsmanager). [Versionsübersicht](CHANGELOG.md).
 
@@ -100,3 +100,11 @@ Die Schaltentscheidung, Hysterese und Midea-Übertemperaturgrenze beziehen sich 
 ## Oszillationsart ab 0.2.8
 
 In der Midea-Kachel ist neben dem Lüftermodus auch die Oszillationsart auswählbar. Das Dropdown übernimmt ausschließlich `swing_modes` des physischen Geräts und zeigt dessen gemeldeten `swing_mode`. Die Auswahl sendet nur `climate.set_swing_mode` mit der gewählten Option; Lüftermodus, HVAC-Modus und Geräte-/Raumsoll werden dabei nicht verändert. Unbekannte Modusbezeichnungen werden unverändert angezeigt, bekannte Modi wie Aus/Vertikal/Horizontal/Beide übersetzt. Bei nicht verfügbarem Gerät oder fehlenden unterstützten Schwenkmodi ist die Auswahl deaktiviert. Live-Updates reißen ein fokussiertes Dropdown nicht ab; Fehler erscheinen in der Kachel.
+
+## Midea-Startlüfter ab 0.2.9
+
+Bei jedem automatischen Einschalten der Midea wird nach dem Heizmodus-Befehl der physische Geräte-Lüfter auf `medium` (Mittel) gesetzt, unabhängig von der vorherigen Einstellung. Das gilt in allen Phasen, beim Nachheizen und bei Schnelländerungen, sobald die Automatik tatsächlich neu einschaltet. Auch beim erstmaligen Übernehmen einer bereits laufenden Midea in Automatik (einschließlich HA-Neustart) wird dieser Startwert einmal angewendet. Mindestpause und fehlender Heizbedarf lösen keinen Lüfterbefehl aus.
+
+Während derselben Heizfreigabe wird der Lüfter nicht bei jedem Tick zurückgesetzt; manuelle Dropdown-Änderungen bleiben bis zur nächsten automatischen Aktivierung erhalten. Raumziel, Offset, Oszillation und Heizkörper werden durch die Lüftervorgabe nicht verändert. Gleiches erneutes Speichern von Einstellungen bzw. Ändern der Zieltemperatur startet keine neue Lüftervorgabe. Ein Wechsel der Midea-Entität oder das erneute Übernehmen in Automatik übernimmt den Startwert erneut. Fehlgeschlagene Anfragen werden angezeigt und beim nächsten Regeltakt erneut versucht. Die unterliegenden Geräte müssen `medium` unterstützen; der Manager zeigt fehlende Unterstützung als Steuerungsfehler an.
+
+Die Heizkörper eines Raums sind ab 0.2.9 in einer gemeinsamen Kachel zusammengefasst. WZ1 und WZ2 behalten jeweils ihre getrennten Ventilwerte, Heizmodi und Geräte-Sollwerte. Der Heizkörper-Energieverbrauch erscheint innerhalb dieser gemeinsamen Kachel. Midea-Stromverbrauch heute und aktuelle Leistung stehen innerhalb der Midea-Kachel; die bisherigen separaten Verbrauchskacheln entfallen. Schätzwerte und Strommessung bleiben klar gekennzeichnet, die Energiequellen weiter je Raum konfigurierbar. Auch die einzelne AZ-Heizung nutzt diese gemeinsame Raumdarstellung.

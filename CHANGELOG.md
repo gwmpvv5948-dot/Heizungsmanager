@@ -1,3 +1,11 @@
+## 0.2.9
+
+- Heizkörper je Raum zu einer Kachel mit getrennten Gerätewerten zusammenfassen; Heizkörper-Energie dort und Midea-Strom in der Midea-Kachel anzeigen.
+
+- Midea bei jeder automatischen Aktivierung auf Lüftermodus Mittel setzen, auch bei Übernahme einer laufenden Midea nach HA-Neustart/Wechsel in Automatik.
+- Startwert nach HVAC-Aktivierung am tatsächlichen Gerät anwenden; keine laufenden manuellen Lüfteränderungen bei jedem Tick überschreiben.
+- Lüfterfehler anzeigen und fehlgeschlagene Startvorgaben erneut versuchen; Oszillation und Temperaturregelung beibehalten.
+
 ## 0.2.8
 
 - Oszillationsart direkt in der Midea-Kachel auswählbar, mit den vom physischen Gerät unterstützten Modi.
