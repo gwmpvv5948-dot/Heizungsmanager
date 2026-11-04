@@ -1,4 +1,4 @@
-# Heizungsmanager · 0.2.5
+# Heizungsmanager · 0.2.6
 
 Lokale Home-Assistant-Custom-Integration mit vier Heizphasen je Raum. Quellcode: [gwmpvv5948-dot/Heizungsmanager](https://github.com/gwmpvv5948-dot/Heizungsmanager). [Versionsübersicht](CHANGELOG.md).
 
@@ -69,7 +69,7 @@ Startplan: Mo–Fr Morgens 06:20, Tag 07:05, Abend 17:00, Nacht 22:00; Sa–So M
 
 ## Gerätestatus-Kacheln (0.2.2)
 
-Im Fahrplan zeigt jeder Raum kleine, ausschließlich lesende Gerätekacheln. Die dem zugeordneten VTherm unterliegenden Climate-Entitäten bestimmen die Heizkörper/Midea automatisch; es werden keine fremden Räume durchsucht. Wohnzimmer: WZ1, WZ2 und Midea; Arbeitszimmer: AZ-Heizkörper. Je Kachel erscheinen Geräte-Heizmodus, gemeldete Aktivität, Regler-Modus und Geräte-Solltemperatur. Die Midea zeigt zusätzlich den aktuellen Lüftermodus des physischen Geräts.
+Im Fahrplan zeigt jeder Raum kleine Gerätekacheln mit Live-Status. Die dem zugeordneten VTherm unterliegenden Climate-Entitäten bestimmen die Heizkörper/Midea automatisch; es werden keine fremden Räume durchsucht. Wohnzimmer: WZ1, WZ2 und Midea; Arbeitszimmer: AZ-Heizkörper. Je Kachel erscheinen Geräte-Heizmodus, gemeldete Aktivität, Regler-Modus und Geräte-Solltemperatur. Die Midea zeigt zusätzlich den aktuellen Lüftermodus des physischen Geräts.
 
 Heizkörper zeigen den gemeldeten Wert von `number.<thermostat>_valve_closing_degree` als **Ventil-Schließgrad · Reglerwert**. Das ist eine Schließvorgabe, keine Messung der mechanischen Position. Öffnungs- und Schließvorgaben sind unterschiedliche Regelparameter; deshalb wird daraus keine vermeintlich gemessene Öffnung durch `100 − Schließgrad` berechnet. Siehe [Zigbee2MQTT TRVZB](https://www.zigbee2mqtt.io/devices/TRVZB.html#valve-closing-degree-numeric). Fehlende/unverfügbare Werte erscheinen als Strich, nicht als 0 %. Statusänderungen aktualisieren die Kacheln direkt über die HA-Zustände, unabhängig vom Planungsintervall.
 
@@ -86,3 +86,7 @@ Die Quellen und die Art des Heizkörper-Zählers (Tageszähler/fortlaufend) lass
 ## Hysterese ab 0.2.5
 
 Unter Einstellungen → Temperaturregelung · alle Heizungen gilt `heating_hysteresis` je Raum für Midea und Heizkörper, in Morgens/Tag/Abend/Nacht und bei Schnelländerungen. Bestehende Werte von `night_reheat_hysteresis` werden bei der Migration übernommen. Es gibt keine separate Nacht-Hysterese mehr. Die Nacht-Zieltemperatur ist jetzt die Abschaltschwelle; der Start liegt um die konfigurierte Hysterese darunter. Ein Soll von 18 °C garantiert deshalb keine Untergrenze von 18 °C. Quellenwahl, Aus, Fenster-/Türpause, Sensorfehler und manuelle Pause haben weiterhin Vorrang; Mindestlaufzeit/-pause und Übertemperaturschutz der Midea bleiben bestehen.
+
+## Midea-Kachel ab 0.2.6
+
+Die Midea-Kachel zeigt die aktuelle gemessene elektrische Leistung aus dem je Raum konfigurierten Leistungssensor (W oder kW, in W angezeigt). Fehlende Werte erscheinen als Strich. Das Lüftermodus-Dropdown enthält ausschließlich die vom physischen Gerät in `fan_modes` gemeldeten Optionen und zeigt den gemeldeten aktuellen Modus. Die Auswahl sendet gezielt `climate.set_fan_mode` an dieses Gerät; HVAC-Modus und Solltemperatur werden dabei nicht geändert. Die Automatik bleibt aktiv. Interne Geräte-/VTherm-Regelungen können den Modus weiterhin beeinflussen. Bei nicht verfügbarem Gerät oder fehlenden unterstützten Modi ist die Auswahl deaktiviert. Die Auswahl bleibt während Live-Updates bedienbar; Fehler werden in der Kachel angezeigt.

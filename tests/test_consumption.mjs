@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {energyKwh,dayStart,counterToday,consumptionRows} from '../custom_components/heizungsmanager/frontend/consumption.js';
+import {energyKwh,dayStart,counterToday,consumptionRows,powerWatts} from '../custom_components/heizungsmanager/frontend/consumption.js';
 const state=(value,unit='kWh')=>({state:String(value),attributes:{unit_of_measurement:unit}});
 const point=(stamp,value,unit='kWh')=>({lu:new Date(stamp).getTime()/1000,s:String(value),a:{unit_of_measurement:unit}});
 const now=new Date('2026-11-04T09:00:00Z'),start=new Date('2026-11-03T23:00:00Z');
@@ -40,4 +40,10 @@ test('living room shows separate measured electricity and estimated radiator ene
 test('office does not inherit Midea electricity and uses its own historical baseline',()=>{
  const rows=consumptionRows({'sensor.az':state(1.983)},{radiators:'climate.az',radiator_energy_sensor:'sensor.az',radiator_energy_period:'total'},[point(start,1.8)],now,'Europe/Berlin');
  assert.equal(rows.length,1);assert.equal(rows[0].key,'radiators');assert.ok(Math.abs(rows[0].value-.183)<1e-9);
+});
+
+test('power display accepts only valid W/kW and distinguishes zero from missing',()=>{
+ assert.equal(powerWatts(state(0,'W')),0);assert.equal(powerWatts(state(1.2,'kW')),1200);
+ for(const value of ['',' ','NaN','unknown','unavailable','-1'])assert.equal(powerWatts(state(value,'W')),null);
+ assert.equal(powerWatts(state(1,'kWh')),null);assert.equal(powerWatts(undefined),null);
 });

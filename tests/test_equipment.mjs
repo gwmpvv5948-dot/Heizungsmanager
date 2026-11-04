@@ -57,3 +57,21 @@ test('plain climate entities and duplicate underlying IDs are supported',()=>{
   assert.equal(equipmentStatus(states,{radiators:'climate.az_thermostat_mqtt'})[0].valveClosing,51);
   assert.deepEqual(equipmentStatus(states,{}),[]);
 });
+test('fan control uses only actual device options, not wrapper options',()=>{
+ const states=fixtures();states['climate.midea'].attributes.fan_modes=['auto','low','silent','low',null,3];states['climate.wz_midea_ac'].attributes.fan_modes=['turbo'];
+ const tile=equipmentStatus(states,{heat_pump:'climate.wz_midea_ac'})[0];
+ assert.deepEqual(tile.fanModes,['auto','low','silent']);assert.equal(tile.fanEntity,'climate.midea');assert.equal(tile.fanValue,'low');
+ states['climate.midea'].state='unavailable';
+ assert.deepEqual(equipmentStatus(states,{heat_pump:'climate.wz_midea_ac'})[0].fanModes,[]);
+});
+test('Midea tile power converts kW and reacts independently of plan changes',()=>{
+ const states=fixtures(),config={heat_pump:'climate.wz_midea_ac',power_sensor:'sensor.power'};
+ states['sensor.power']=state('.924',{unit_of_measurement:'kW'});
+ assert.equal(equipmentStatus(states,config)[0].watts,924);
+ const before=JSON.stringify(equipmentStatus(states,config));
+ states['sensor.power']=state('16',{unit_of_measurement:'W'});
+ assert.equal(equipmentStatus(states,config)[0].watts,16);
+ assert.notEqual(JSON.stringify(equipmentStatus(states,config)),before);
+ states['sensor.power']=state('unavailable',{unit_of_measurement:'W'});
+ assert.equal(equipmentStatus(states,config)[0].watts,null);
+});

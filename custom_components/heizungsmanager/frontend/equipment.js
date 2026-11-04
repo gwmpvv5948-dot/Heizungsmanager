@@ -1,4 +1,5 @@
-/* Read-only equipment status. No device commands or inferred mechanical positions. */
+import {powerWatts} from './consumption.js?v=0.2.6';
+/* Equipment snapshots; controls are handled by the card. No inferred valve positions. */
 export const modeLabel = value => ({heat:'Heizen',cool:'Kühlen',heat_cool:'Heizen/Kühlen',auto:'Automatik',off:'Aus',fan_only:'Nur Lüfter',dry:'Entfeuchten',sleep:'Schlafen',heating:'Heizt',cooling:'Kühlt',idle:'Bereit',fan:'Lüfter läuft',drying:'Entfeuchtet',defrosting:'Abtauen',auto_fan_low:'Automatisch · niedrig',auto_fan_medium:'Automatisch · mittel',auto_fan_high:'Automatisch · hoch',low:'Niedrig',medium:'Mittel',high:'Hoch',silent:'Leise',turbo:'Turbo'})[value] || (value == null || value === '' ? 'Nicht gemeldet' : String(value));
 const available = state => Boolean(state && !['unknown','unavailable'].includes(state.state));
 const attribute = (state,key) => available(state) ? state.attributes?.[key] : null;
@@ -32,7 +33,8 @@ export function equipmentStatus(states, config) {
     const device=states[id];
     // Never replace an unavailable physical device with apparently healthy wrapper data.
     const fan=attribute(device,'fan_mode') ?? (available(device)?attribute(controller,'fan_mode'):null);
-    tiles.push({kind:'heat_pump',id,name:'Midea · Klimaanlage',...status(device),controllerMode:available(controller)?modeLabel(controller.state):'Nicht verfügbar',fan:modeLabel(fan)});
+    const fanModes=available(device) && Array.isArray(device.attributes?.fan_modes)?[...new Set(device.attributes.fan_modes.filter(value=>typeof value==='string' && value))]:[];
+    tiles.push({kind:'heat_pump',id,fanEntity:id,fanModes,fanValue:fan,watts:powerWatts(states[config.power_sensor]),name:'Midea · Klimaanlage',...status(device),controllerMode:available(controller)?modeLabel(controller.state):'Nicht verfügbar',fan:modeLabel(fan)});
   }
   return tiles;
 }

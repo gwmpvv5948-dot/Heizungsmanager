@@ -30,13 +30,16 @@ export function counterToday(points,current,start,now=new Date()) {
   }
   return {value:Math.max(0,total),note:gap?'Historielücke: Verbrauch möglicherweise unvollständig':'Aus kumulativem Zähler seit 00:00; Zählerrücksetzungen berücksichtigt'};
 }
+export function powerWatts(state) {
+  if(!state || ['unknown','unavailable',''].includes(state.state) || String(state.state).trim()==='')return null;
+  const scale={W:1,kW:1000}[state.attributes?.unit_of_measurement];
+  const value=Number(state.state);
+  return scale && Number.isFinite(value) && value>=0 ? value*scale : null;
+}
 export function consumptionRows(states,config,history=null,now=new Date(),zone='Europe/Berlin') {
   const rows=[];
   if(config.heat_pump && config.pump_daily_energy_sensor) {
-    const power=states[config.power_sensor];let watts=null;
-    if(power && !['unknown','unavailable',''].includes(power.state) && String(power.state).trim() && ['W','kW'].includes(power.attributes?.unit_of_measurement)) {
-      const value=Number(power.state);if(Number.isFinite(value) && value>=0)watts=value*(power.attributes.unit_of_measurement==='kW'?1000:1);
-    }
+    const watts=powerWatts(states[config.power_sensor]);
     rows.push({key:'pump',label:'Midea · Strom',quality:'Gemessen · Stromzähler',entity:config.pump_daily_energy_sensor,value:energyKwh(states[config.pump_daily_energy_sensor]),watts,note:'Heutiger Tageszähler der Midea'});
   }
   if(config.radiators && config.radiator_energy_sensor) {

@@ -1,3 +1,9 @@
+## 0.2.6
+
+- Aktuelle gemessene Leistung direkt in der Midea-Kachel anzeigen, W/kW korrekt umrechnen.
+- Geräte-Lüftermodus per Dropdown mit den tatsächlich unterstützten Optionen setzen, ohne HVAC-Modus oder Zieltemperatur zu ändern.
+- Fehlende Messwerte, nicht steuerbare Geräte und Servicefehler kenntlich machen; Dropdown-Fokus bei Live-Updates erhalten.
+
 ## 0.2.5
 
 - Gemeinsame Hysterese je Raum für alle Wärmequellen, Phasen und temporären Sollwerte: Start unter Soll minus Hysterese, Abschalten ab Soll.
