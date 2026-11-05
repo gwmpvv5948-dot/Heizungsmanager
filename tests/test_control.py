@@ -50,7 +50,7 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
             'climate.wz_vtherm':state('climate.wz_vtherm','off',hvac_modes=['off','heat'],temperature=18,min_temp=7,max_temp=24,target_temp_step=.1,valve_open_percent=0,hvac_action='off')}
         self.service=AsyncMock()
         hass=types.SimpleNamespace(states=types.SimpleNamespace(get=self.states.get),services=types.SimpleNamespace(async_call=self.service))
-        entry=types.SimpleNamespace(entry_id='test',data={},options={})
+        entry=types.SimpleNamespace(entry_id='test',data={"pump_regulation":"hysteresis"},options={})
         self.c=HeatingCoordinator(hass,entry)
         self.c.last_weather_request=NOW.timestamp()
 
@@ -452,3 +452,16 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('Heizkörper nicht erreichbar',self.c.data['error'])
 
 if __name__=='__main__':unittest.main()
+
+class HoldServiceTests(unittest.IsolatedAsyncioTestCase):
+    setUp=ControlTests.setUp
+    async def test_hold_avoids_hvac_off_at_room_target_and_does_not_use_offset(self):
+        self.c.config['pump_regulation']='hold'
+        for key in ('sensor.wz_temp',):self.states[key].state='21'
+        pump=self.states['climate.wz_midea_ac'];pump.state='heat';pump.attributes['temperature']=21;pump.attributes['hvac_action']='idle';pump.attributes['fan_mode']='medium'
+        self.c.mode='Automatik'
+        await self.c.async_tick()
+        self.assertTrue(self.c.data['plan'][0]['heat_pump'])
+        self.assertEqual(self.c.data['plan'][0]['control_target'],21)
+        calls=[x.args for x in self.service.await_args_list]
+        self.assertFalse(any(x[1]=='set_hvac_mode' and x[2].get('entity_id')==pump.entity_id and x[2].get('hvac_mode')=='off' for x in calls))

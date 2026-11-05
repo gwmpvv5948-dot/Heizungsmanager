@@ -19,7 +19,7 @@ TZ = ZoneInfo('Europe/Berlin')
 
 class ModelTests(unittest.TestCase):
     def setUp(self):
-        self.cfg = dict(c.DEFAULTS)
+        self.cfg = {**c.DEFAULTS,"pump_regulation":"hysteresis"}
         self.model = m.ThermalModel()
 
     def test_weekday_weekend_and_all_four_phases(self):

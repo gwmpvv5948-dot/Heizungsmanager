@@ -1,3 +1,9 @@
+## 0.3.0
+- Temperaturhalten statt Abschalten beim erreichten Raumziel, mit weiterhin verbindlichem Tür-, Sensor-, Mindestpausen- und Übertemperaturschutz.
+- Optionaler lokaler PV-Vorrang aus Strommanager-Messwerten, geglättet und mit Bestätigungs-/Haltezeiten; keine PV-bedingte Wärmepumpen-Abschaltung.
+- Konfigurierbare Rückkehr zur bisherigen Ein/Aus-Regelung; alter Midea-Offset nur dort aktiv.
+- HACS-Konfiguration und eigenes Heizungsmanager-Icon im Stil des Strommanagers.
+
 ## 0.2.9
 
 - Heizkörper je Raum zu einer Kachel mit getrennten Gerätewerten zusammenfassen; Heizkörper-Energie dort und Midea-Strom in der Midea-Kachel anzeigen.

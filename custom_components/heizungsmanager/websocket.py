@@ -20,7 +20,7 @@ def payload(hass, coordinator):
         existing = next((item for item in hass.data.get(DOMAIN, {}).values()
                          if hasattr(item, "entry") and item.config.get("room_id", "wohnzimmer") == room_id), None)
         rooms.append({"room_id": room_id, "name": name, "entry_id": existing.entry.entry_id if existing else None})
-    return {"rooms": rooms, "config": coordinator.config, "mode": coordinator.mode, "version": "0.2.9",
+    return {"rooms": rooms, "config": coordinator.config, "mode": coordinator.mode, "version": "0.3.0",
         "plan_entity": registry.async_get_entity_id("sensor", DOMAIN, f"{entry_id}_plan"),
         "mode_entity": registry.async_get_entity_id("select", DOMAIN, f"{entry_id}_mode")}
 
@@ -97,7 +97,7 @@ async def save_config(hass, connection, msg):
                 raise ValueError("Eine Wärmequelle darf nicht mehreren Räumen zugeordnet werden.")
         error = validate(config)
         if error:
-            messages = {"same_sensor": "Bitte zwei unterschiedliche Temperatursensoren wählen.",
+            messages = {"pv_thresholds":"PV-Ausschaltschwelle muss kleiner als die Einschaltschwelle sein.","same_sensor": "Bitte zwei unterschiedliche Temperatursensoren wählen.",
                 "recursive_sensor": "Die berechnete Raumtemperatur darf nicht als eigene Quelle verwendet werden.",
                 "same_device": "Midea und Heizkörper müssen unterschiedlich sein.",
                 "temperature_order": "Nachttemperatur darf nicht über Komforttemperatur liegen.",

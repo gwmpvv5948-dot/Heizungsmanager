@@ -89,6 +89,8 @@ ROOMS = {"wohnzimmer": "Wohnzimmer", "arbeitszimmer": "Arbeitszimmer", "alwin": 
 def normalize_config(config):
     """Migrate the old two-temperature plan without changing its saved inputs."""
     result = dict(config)
+    for key,value in {"pump_regulation":"hold","pv_preference_mode":"auto","pv_on_w":1000,"pv_off_w":500,"pv_confirm_minutes":5,"pv_hold_minutes":20,"pv_aux_gap":1.0}.items():
+        result.setdefault(key,value)
     room = result.setdefault("room_id", "wohnzimmer")
     result["room_name"] = ROOMS.get(room, room)
     result.setdefault("heating_hysteresis", config.get("night_reheat_hysteresis", 0.3))
@@ -176,7 +178,7 @@ def cycle_guard(now, requested, active, since, config, temperature, target):
 
 
 def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_active=False, override=None,
-              pump_state=None, pump_state_since=None, radiators_state=False):
+              pump_state=None, pump_state_since=None, radiators_state=False, pv_status=None):
     config = normalize_config(config)
     rows = []
     predicted = temp
@@ -208,15 +210,20 @@ def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_act
             phase = "Temporär"
             reason = f"Temporäre Wunschtemperatur {target:.1f} °C; anschließend automatisch zurück zum Zeitplan"
         hysteresis = config["heating_hysteresis"]
-        pump_offset = config.get("pump_temperature_offset", 0.5) if config.get("heat_pump") else 0.0
+        holding = config["pump_regulation"] == "hold"
+        pv = bool(pv_status and pv_status.get("preferred") and stamp<=pv_status.get("valid_until",0))
+        pump_offset = config.get("pump_temperature_offset", 0.5) if config.get("heat_pump") and not holding else 0.0
         control_target = target + pump_offset
-        pump_heat_active = heat_demand(predicted, target, pump_heat_active, hysteresis)
+        if holding:
+            pump_heat_active = (predicted < target + config.get("pump_overheat_margin",.5)) if active else predicted <= target
+        else:
+            pump_heat_active = heat_demand(predicted, target, pump_heat_active, hysteresis)
         rad_active = heat_demand(predicted, target, rad_active, hysteresis) and sources in ("both", "radiators")
         enabled = pump_heat_active
-        reason += f" · Hysterese {hysteresis:.1f} °C: Start unter {target - hysteresis:.1f} °C, aus ab {target:.1f} °C"
+        reason += (" · Temperaturhalten: Wärmepumpe bleibt bei erreichtem Raumziel freigegeben; Geräte-Soll entspricht Raumziel" if holding else f" · Hysterese {hysteresis:.1f} °C: Start unter {target - hysteresis:.1f} °C, aus ab {target:.1f} °C")
         if sources not in ("both", "heat_pump"):
             reason += "; Midea nicht freigegeben"
-        if config.get("heat_pump") and sources in ("both", "heat_pump"):
+        if config.get("heat_pump") and sources in ("both", "heat_pump") and not holding:
             reason += f" · Midea-Geräte-Soll {control_target:.1f} °C (Raumziel {target:.1f} °C + Offset {pump_offset:.1f} °C)"
         requested = enabled and sources in ("both", "heat_pump")
         enabled, protection, remaining = cycle_guard(
@@ -231,6 +238,11 @@ def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_act
             since = when.timestamp()
             active = enabled
         pump_heat_active = enabled
+        if holding and predicted >= target+config.get("pump_overheat_margin",.5):
+            reason += " · Übertemperatur: Heizfreigabe aus, Neustart erst bis Raumziel abgekühlt und nach Mindestpause"
+        if pv and enabled and sources=="both" and predicted>=target-config["pv_aux_gap"]:
+            rad_active=False
+            reason += " · PV-Vorrang: Wärmepumpe hält; Heizkörper warten (bei größerem Temperaturdefizit ergänzen sie)"
         # Radiators also stop when the target is reached, in every phase.
         rad = 1.0 if rad_active else 0.0
         required = (target - predicted) * 3 + model.loss * (predicted - outside) - model.radiator_gain * rad
@@ -243,7 +255,7 @@ def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_act
                      "radiators": bool(rad), "heat_pump": enabled,
                      "control_target": round(control_target, 2), "pump_temperature_offset": pump_offset,
                      "cycle_protection": protection, "cycle_remaining_seconds": remaining,
-                     "requested_heat_pump": requested,
+                     "requested_heat_pump": requested, "holding":holding,"pv_preferred":pv,
                      "pump_demand_estimate": round(pump, 2), "reason": reason})
         hours = (ordered[index + 1] - stamp) / 3600 if index + 1 < len(ordered) else 0
         predicted += model.rate(predicted, outside, pump, rad) * hours

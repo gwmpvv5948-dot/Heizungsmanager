@@ -13,6 +13,7 @@ from homeassistant.util import dt as dt_util
 from .const import DEFAULTS, DOMAIN
 from .model import ThermalModel, finite, make_plan, next_schedule_time, normalize_config
 from .temperature import RoomTemperature
+from .pv import PVPreference, strommanager_surplus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
         self.pump_heat_active = False
         self._pump_heat_commanded = False
         self.override = None
+        self.pv_preference = PVPreference()
 
     async def async_initialize(self):
         saved = await self.store.async_load() or {}
@@ -337,6 +339,10 @@ class HeatingCoordinator(DataUpdateCoordinator):
         else:
             self.previous = None
         forecast = self.forecast if self.forecast_updated and now.timestamp() - self.forecast_updated < 7200 else []
+        power_state=self.state("power_sensor")
+        pump_w=finite(power_state.state,0,30000) if power_state and self.fresh(power_state,now,5) and power_state.attributes.get("unit_of_measurement") in ("W","kW") else None
+        if pump_w is not None and power_state.attributes.get("unit_of_measurement")=="kW":pump_w*=1000
+        pv_status=self.pv_preference.update(now.timestamp(),strommanager_surplus(self.hass,now.timestamp(),pump_w),self.config)
         pump_state = self.state("heat_pump")
         pump_on = bool(pump_state and pump_state.state == "heat")
         # last_changed tracks the HVAC mode, not changing temperature/power attributes.
@@ -344,7 +350,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
         pump_since = pump_state.last_changed.timestamp() if pump_state else now.timestamp()
         plan = make_plan(now, temp, outside, forecast, self.config, self.model,
                          pump_on, self.override, pump_on, pump_since,
-                         bool(self.state("radiators") and self.state("radiators").state == "heat")) if temp is not None else []
+                         bool(self.state("radiators") and self.state("radiators").state == "heat"),pv_status) if temp is not None else []
         row = plan[0] if plan else None
         self.pump_heat_active = bool(row and row["heat_pump"])
         status = row["phase"] if row else "Raumsensor fehlt oder ist veraltet"
@@ -379,7 +385,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
                 "temperature_info": temperature_info, "outdoor": outside, "target": row["target"] if row else None,
                 "window_open": window_open, "window_unknown": window_unknown,
                 "manual_until": self.manual_until.isoformat() if self.manual_until else None,
-                "plan": plan, "history": self.history, "model": self.model.dump(),
+                "pv_preference":pv_status,"plan": plan, "history": self.history, "model": self.model.dump(),
                 "learning_quality": self.model.quality, "weather_note": self.weather_note,
                 "error": self.error, "updated": now.isoformat(), "config": self.config,
                 "plan_note": "Normalbetrieb bei geschlossener Tür; manuelle Eingriffe und Störungen nicht vorhersehbar. Keine Verbrauchsprognose."}

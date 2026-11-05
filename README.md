@@ -1,4 +1,4 @@
-# Heizungsmanager · 0.2.9
+# Heizungsmanager · 0.3.0
 
 Lokale Home-Assistant-Custom-Integration mit vier Heizphasen je Raum. Quellcode: [gwmpvv5948-dot/Heizungsmanager](https://github.com/gwmpvv5948-dot/Heizungsmanager). [Versionsübersicht](CHANGELOG.md).
 
@@ -108,3 +108,44 @@ Bei jedem automatischen Einschalten der Midea wird nach dem Heizmodus-Befehl der
 Während derselben Heizfreigabe wird der Lüfter nicht bei jedem Tick zurückgesetzt; manuelle Dropdown-Änderungen bleiben bis zur nächsten automatischen Aktivierung erhalten. Raumziel, Offset, Oszillation und Heizkörper werden durch die Lüftervorgabe nicht verändert. Gleiches erneutes Speichern von Einstellungen bzw. Ändern der Zieltemperatur startet keine neue Lüftervorgabe. Ein Wechsel der Midea-Entität oder das erneute Übernehmen in Automatik übernimmt den Startwert erneut. Fehlgeschlagene Anfragen werden angezeigt und beim nächsten Regeltakt erneut versucht. Die unterliegenden Geräte müssen `medium` unterstützen; der Manager zeigt fehlende Unterstützung als Steuerungsfehler an.
 
 Die Heizkörper eines Raums sind ab 0.2.9 in einer gemeinsamen Kachel zusammengefasst. WZ1 und WZ2 behalten jeweils ihre getrennten Ventilwerte, Heizmodi und Geräte-Sollwerte. Der Heizkörper-Energieverbrauch erscheint innerhalb dieser gemeinsamen Kachel. Midea-Stromverbrauch heute und aktuelle Leistung stehen innerhalb der Midea-Kachel; die bisherigen separaten Verbrauchskacheln entfallen. Schätzwerte und Strommessung bleiben klar gekennzeichnet, die Energiequellen weiter je Raum konfigurierbar. Auch die einzelne AZ-Heizung nutzt diese gemeinsame Raumdarstellung.
+
+## Installation über HACS
+
+1. In HACS → Menü → **Benutzerdefinierte Repositories**.
+2. `https://github.com/gwmpvv5948-dot/Heizungsmanager` hinzufügen, Typ **Integration**.
+3. **Heizungsmanager** herunterladen und Home Assistant neu starten.
+4. Unter **Einstellungen → Geräte & Dienste → Integration hinzufügen → Heizungsmanager** die eigenen Räume und Entitäten konfigurieren.
+
+Bestehende Einrichtungen können über HACS aktualisiert werden; Konfiguration,
+Lernmodell und Verlauf verbleiben in HAs `.storage`. Keine Neuinstallation der Räume nötig.
+Lokale Markenbilder liegen in `custom_components/heizungsmanager/brand/`.
+HACS 2.0.5 nutzt teilweise noch den externen Brands-Server und benötigt dafür einen
+lokalen Kompatibilitätsfix; moderne HA-Ansichten nutzen die lokalen Dateien.
+
+## Temperaturhalten und PV-Vorrang (ab 0.3.0)
+
+**Temperatur halten** ist die neue Voreinstellung für konfigurierte Wärmepumpen.
+Der Manager beendet die Heizfreigabe nicht schon beim Erreichen des Raumziels.
+Das Geräte-Soll entspricht dem Raumziel; der alte Midea-Offset wirkt nur noch
+bei der weiterhin wählbaren **Ein/Aus-Regelung**. Die tatsächliche Modulation und
+Verdichterzyklen bleiben Aufgabe des vorhandenen Geräts/VTherm-Reglers.
+Bei Raumziel + konfigurierter Übertemperaturgrenze wird ausgeschaltet; danach erst
+bei Abkühlung bis zum Raumziel und nach der Mindestpause wieder freigegeben.
+Explizite Phasen ohne Wärmepumpe, Aus, Tür-/Fensterpause und ungültige Raumsensoren
+haben Vorrang. Keine Änderung der bestehenden Zeitpläne oder Gerätezuordnungen.
+
+Optional liefert ein lokal laufender **Strommanager** das PV-Signal. Verwendet
+werden frische Netto-Einspeisung und Hausspeicherleistung; Hausspeicherentladung
+wird abgezogen. Die gemessene eigene Wärmepumpenleistung wird hinzugezählt,
+damit ihr Start nicht den eigenen PV-Vorrang sofort aufhebt. Fehlende Werte
+werden als unbekannt behandelt. Drei Minuten Glättung, getrennte Schwellen
+(standardmäßig 1.000 W ein / 500 W aus), fünf Minuten Bestätigung und mindestens
+20 Minuten PV-Vorrang überbrücken Wolken. Alle Werte sind konfigurierbar.
+
+PV-Vorrang betrifft nur Phasen mit **Midea + Heizkörper**: Bei kleinem
+Temperaturdefizit übernimmt die freigegebene Wärmepumpe; ab standardmäßig 1 °C
+Defizit dürfen die Heizkörper weiter ergänzen. Wird PV knapp oder fehlt das Signal,
+bleibt die Wärmepumpe im Haltebetrieb. Es gibt keine zusätzliche Sollwertanhebung,
+keine PV-bedingte Heizsperre und keinen Anspruch auf vollständige PV-Deckung.
+Das aktuelle PV-Signal ist keine 24-Stunden-Prognose; im Fahrplan wird es maximal
+fünf Minuten fortgeschrieben. Heizkörperfreigaben darüber hinaus folgen dem Zeitplan.

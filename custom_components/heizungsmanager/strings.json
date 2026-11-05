@@ -52,7 +52,14 @@
           "radiator_energy_sensor": "Heizkörper: Energiezähler (optional)",
           "radiator_energy_period": "Heizkörper-Zählerart",
           "heating_hysteresis": "Gemeinsame Heiz-Hysterese für alle Phasen und Wärmequellen (°C)",
-          "pump_temperature_offset": "Midea: Geräte-Sollwert-Offset (°C)"
+          "pump_temperature_offset": "Midea: Geräte-Sollwert-Offset (°C)",
+          "pump_regulation": "Wärmepumpe · Regelung",
+          "pv_preference_mode": "PV-Vorrang",
+          "pv_on_w": "PV-Vorrang ab (W)",
+          "pv_off_w": "PV-Vorrang unter (W)",
+          "pv_confirm_minutes": "PV-Bestätigungszeit (Minuten)",
+          "pv_hold_minutes": "PV-Mindesthaltezeit (Minuten)",
+          "pv_aux_gap": "Heizkörper ergänzen ab Temperaturdefizit (°C)"
         }
       },
       "room": {
@@ -73,7 +80,8 @@
       "room_immutable": "Raum kann nach Einrichtung nicht geändert werden.",
       "shared_device": "Eine Wärmequelle darf nicht mehreren Räumen zugeordnet werden.",
       "missing_heater": "Mindestens eine Wärmequelle zuordnen.",
-      "missing_source": "Eine in den Phasen gewählte Wärmequelle fehlt im Raum."
+      "missing_source": "Eine in den Phasen gewählte Wärmequelle fehlt im Raum.",
+      "pv_thresholds": "PV-Ausschaltschwelle muss kleiner als die Einschaltschwelle sein."
     },
     "abort": {
       "already_configured": "Das Wohnzimmer ist bereits eingerichtet."
@@ -131,7 +139,14 @@
           "radiator_energy_sensor": "Heizkörper: Energiezähler (optional)",
           "radiator_energy_period": "Heizkörper-Zählerart",
           "heating_hysteresis": "Gemeinsame Heiz-Hysterese für alle Phasen und Wärmequellen (°C)",
-          "pump_temperature_offset": "Midea: Geräte-Sollwert-Offset (°C)"
+          "pump_temperature_offset": "Midea: Geräte-Sollwert-Offset (°C)",
+          "pump_regulation": "Wärmepumpe · Regelung",
+          "pv_preference_mode": "PV-Vorrang",
+          "pv_on_w": "PV-Vorrang ab (W)",
+          "pv_off_w": "PV-Vorrang unter (W)",
+          "pv_confirm_minutes": "PV-Bestätigungszeit (Minuten)",
+          "pv_hold_minutes": "PV-Mindesthaltezeit (Minuten)",
+          "pv_aux_gap": "Heizkörper ergänzen ab Temperaturdefizit (°C)"
         }
       }
     },
@@ -145,7 +160,8 @@
       "room_immutable": "Raum kann nach Einrichtung nicht geändert werden.",
       "missing_heater": "Mindestens eine Wärmequelle zuordnen.",
       "missing_source": "Eine in den Phasen gewählte Wärmequelle fehlt im Raum.",
-      "shared_device": "Eine Wärmequelle darf nicht mehreren Räumen zugeordnet werden."
+      "shared_device": "Eine Wärmequelle darf nicht mehreren Räumen zugeordnet werden.",
+      "pv_thresholds": "PV-Ausschaltschwelle muss kleiner als die Einschaltschwelle sein."
     }
   }
 }

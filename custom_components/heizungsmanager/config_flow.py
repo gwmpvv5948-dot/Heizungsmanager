@@ -13,6 +13,8 @@ from .model import normalize_config, PHASES, SOURCES, ROOMS
 def schema(values):
     values = normalize_config(values)
     fields = {}
+    fields[vol.Required("pump_regulation",default=values["pump_regulation"])]=vol.In({"hold":"Temperatur halten","hysteresis":"Ein/Aus nach Raumtemperatur"})
+    fields[vol.Required("pv_preference_mode",default=values["pv_preference_mode"])]=vol.In({"auto":"Automatisch über Strommanager","off":"Aus"})
     fields[vol.Required("room_id", default=values["room_id"])] = vol.In(ROOMS)
     for key, domain in (("temperature_sensor", "sensor"), ("weather", "weather")):
         default = values.get(key) or vol.UNDEFINED
@@ -36,7 +38,7 @@ def schema(values):
             fields[vol.Required(prefix + "temperature", default=values[prefix + "temperature"])] = selector.NumberSelector(
                 selector.NumberSelectorConfig(min=7, max=24, step=0.5, mode="box"))
             fields[vol.Required(prefix + "sources", default=values[prefix + "sources"])] = vol.In(SOURCES)
-    for key, low, high, step in (("primary_temperature_weight", 1, 99, 1),
+    for key, low, high, step in (("pv_on_w",100,10000,100),("pv_off_w",0,9900,100),("pv_confirm_minutes",1,30,1),("pv_hold_minutes",5,120,5),("pv_aux_gap",.5,3,.5),("primary_temperature_weight", 1, 99, 1),
                                 ("heating_hysteresis", 0.1, 1.0, 0.1),
                                 ("pump_min_on_minutes", 5, 60, 1),
                                 ("pump_min_off_minutes", 5, 60, 1),
@@ -54,6 +56,7 @@ def schema(values):
 
 
 def validate(data):
+    if data.get("pv_off_w",500)>=data.get("pv_on_w",1000):return "pv_thresholds"
     if data.get("temperature_sensor") == data.get("secondary_temperature_sensor"):
         return "same_sensor"
     if any((data.get(key, "").startswith("sensor.heizungsmanager_") and data.get(key, "").endswith("_raumtemperatur")) for key in ("temperature_sensor", "secondary_temperature_sensor")):
