@@ -1,3 +1,8 @@
+## 0.3.2
+
+- Heiz-Fahrplan: Midea grün, Heizkörper orange, gemeinsame Phasen orange/grün schraffiert.
+- Dieselben Farben und Schraffuren für die Punkte unter Geplante Heizphasen und die Legende.
+
 ## 0.3.1
 
 - Manuellen Heizkörper-Sollwert als Raumziel bis zur nächsten Planphase übernehmen; automatische Echos und Absenkwerte ausfiltern.
