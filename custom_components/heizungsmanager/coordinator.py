@@ -44,8 +44,15 @@ class HeatingCoordinator(DataUpdateCoordinator):
         self._pump_heat_commanded = False
         self.override = None
         self.pv_preference = PVPreference()
+        self._startup_pending = False
+        self._startup_ready_since = None
+        self._stopping = False
+        self._pending_manual_target = None
+        self._sending_targets = {}
 
     async def async_initialize(self):
+        self._startup_pending = True
+        self._startup_ready_since = None
         saved = await self.store.async_load() or {}
         self.model = ThermalModel.restore(saved.get("model", {}))
         # New installations start in observation; an explicit selection survives restart.
@@ -56,12 +63,23 @@ class HeatingCoordinator(DataUpdateCoordinator):
         if isinstance(restored, dict) and finite(restored.get("temperature"), 16, 24) is not None and finite(restored.get("until"), 0, 9999999999) is not None:
             if restored["until"] > dt_util.now().timestamp():
                 self.override = restored
+        self.listen_for_stop()
         self.unsubs.append(async_track_time_interval(self.hass, self.async_tick, timedelta(seconds=30)))
         watched = self.watched_entities()
-        self.unsubs.append(async_track_state_change_event(self.hass, watched, self.async_changed))
+        self.listen_for_states()
         await self.async_tick()
 
+    @callback
+    def async_stopping(self, _event=None):
+        self._stopping = True
+
+    def listen_for_stop(self):
+        bus = getattr(self.hass, "bus", None)
+        if bus is not None:
+            self.unsubs.append(bus.async_listen_once("homeassistant_stop", self.async_stopping))
+
     async def async_shutdown(self):
+        self._stopping = True
         for unsub in self.unsubs:
             unsub()
         await self.async_save()
@@ -77,6 +95,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
             if duration not in ("1h", "2h", "schedule"):
                 raise ValueError("Ungültige Dauer")
         async with self.lock:
+            self._startup_pending = False
             now = dt_util.now()
             until = next_schedule_time(now, self.config) if duration == "schedule" else now.timestamp() + (3600 if duration == "1h" else 7200)
             self.override = {"temperature": temperature, "until": until, "duration": duration} if temperature is not None else None
@@ -87,14 +106,62 @@ class HeatingCoordinator(DataUpdateCoordinator):
             await self._tick()
             await self.async_save()
 
+    def radiator_entities(self):
+        controller = self.state("radiators")
+        details = controller.attributes.get("vtherm_over_climate", {}) if controller else {}
+        ids = details.get("underlying_entities", []) if isinstance(details, dict) else []
+        ids = ids or (controller.attributes.get("underlying_entities", []) if controller else [])
+        return {self.config.get("radiators"), *[i for i in ids if isinstance(i, str) and i.startswith("climate.")]} - {None, ""}
+
+    def listen_for_states(self):
+        bus = getattr(self.hass, "bus", None)
+        if bus is not None:
+            # Underlying devices can appear after setup; resolve room membership
+            # dynamically instead of permanently missing their later events.
+            self.unsubs.append(bus.async_listen("state_changed", self.async_changed))
+        else:
+            self.unsubs.append(async_track_state_change_event(self.hass, self.watched_entities(), self.async_changed))
+
+    def manual_temperature(self, event):
+        if self._startup_pending or self._stopping or self.mode != "Automatik":
+            return None
+        data = getattr(event, "data", {})
+        entity_id, old, new = data.get("entity_id"), data.get("old_state"), data.get("new_state")
+        if entity_id not in self.radiator_entities() or not old or not new:
+            return None
+        if old.state in ("unknown", "unavailable") or new.state in ("unknown", "unavailable") or old.attributes.get("restored") or new.attributes.get("restored"):
+            return None
+        before = finite(old.attributes.get("temperature"), 0, 40)
+        target = finite(new.attributes.get("temperature"), 16, 24)
+        if before is None or target is None or abs(target-before)<0.15 or abs(target*2-round(target*2))>0.001:
+            return None
+        own = self._sending_targets.get(self.config.get("radiators"))
+        previous = self.commands.get("radiators")
+        controller = self.state("radiators")
+        wrapper_target = finite(controller.attributes.get("temperature"), 0, 40) if controller else None
+        if (own is not None and abs(target-own)<0.15) or (previous and previous[0] != "off" and abs(target-previous[1])<0.15):
+            return None
+        if entity_id != self.config.get("radiators") and wrapper_target is not None and abs(target-wrapper_target)<0.15:
+            return None
+        return {"temperature": target, "source": entity_id}
+
     @callback
     def async_changed(self, event):
+        if self._stopping:
+            return
+        entity_id = getattr(event, "data", {}).get("entity_id")
+        if entity_id and entity_id not in set(self.watched_entities()) | self.radiator_entities():
+            return
+        target = self.manual_temperature(event)
+        if target:
+            self._pending_manual_target = target
         self.hass.async_create_task(self.async_tick())
 
     async def async_set_mode(self, mode):
         if mode not in ("Beobachten", "Automatik", "Aus"):
             raise ValueError("Ungültige Betriebsart")
         async with self.lock:
+            self._startup_pending = False
             if mode != self.mode:
                 self._pump_heat_commanded = False
             self.mode = mode
@@ -107,6 +174,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
 
     async def async_apply_options(self):
         async with self.lock:
+            self._startup_pending = False
             previous_pump = self.config.get("heat_pump")
             self.config = normalize_config({**DEFAULTS, **self.entry.data, **self.entry.options})
             if self.config.get("heat_pump") != previous_pump:
@@ -122,9 +190,9 @@ class HeatingCoordinator(DataUpdateCoordinator):
             # Entity changes must update the event subscription too.
             for unsubscribe in self.unsubs:
                 unsubscribe()
-            self.unsubs = [async_track_time_interval(self.hass, self.async_tick, timedelta(seconds=30)),
-                async_track_state_change_event(self.hass,
-                    self.watched_entities(), self.async_changed)]
+            self.unsubs = [async_track_time_interval(self.hass, self.async_tick, timedelta(seconds=30))]
+            self.listen_for_states()
+            self.listen_for_stop()
             await self._tick()
 
     def watched_entities(self):
@@ -156,7 +224,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
         return self.hass.states.get(self.config[key]) if self.config.get(key) else None
 
     def fresh(self, state, now, minutes=None):
-        if state is None or state.state in ("unknown", "unavailable"):
+        if state is None or state.state in ("unknown", "unavailable") or state.attributes.get("restored"):
             return False
         reported = getattr(state, "last_reported", state.last_updated)
         return (now - reported).total_seconds() < 60 * (minutes or self.config["sensor_timeout_minutes"])
@@ -225,6 +293,8 @@ class HeatingCoordinator(DataUpdateCoordinator):
                 return
 
     async def set_start_fan_medium(self, controller):
+        if self._stopping or not getattr(self.hass, "is_running", True):
+            return
         """Apply the start default after HVAC activation, using the actual device."""
         details = controller.attributes.get("vtherm_over_climate") or {}
         devices = details.get("underlying_entities") if isinstance(details, dict) else None
@@ -243,6 +313,8 @@ class HeatingCoordinator(DataUpdateCoordinator):
                     {"entity_id": entity_id, "fan_mode": "medium"}, blocking=True)
 
     async def command(self, key, mode, target):
+        if self._stopping or not getattr(self.hass, "is_running", True):
+            return
         if not self.config.get(key):
             return
         state = self.state(key)
@@ -250,6 +322,14 @@ class HeatingCoordinator(DataUpdateCoordinator):
             raise ValueError(f"{self.config[key]} nicht verfügbar")
         if mode not in state.attributes.get("hvac_modes", []):
             raise ValueError(f"{self.config[key]} unterstützt {mode} nicht")
+        previous = self.commands.get(key)
+        current_target = finite(state.attributes.get("temperature"), 0, 40)
+        mismatch = state.state != mode or (mode != "off" and (current_target is None or abs(current_target-target) > 0.15))
+        if (previous and previous[0] == mode and abs(previous[1]-target) < 0.05
+                and dt_util.now().timestamp()-previous[2] < 15 and mismatch):
+            # Allow the previous command to settle. Resetting its timestamp and
+            # resending here would fight VTherm's underlying-mode feedback forever.
+            return
         starting_pump = key == "heat_pump" and mode == "heat" and (state.state != "heat" or not self._pump_heat_commanded)
         changed = False
         if mode != "off":
@@ -259,9 +339,15 @@ class HeatingCoordinator(DataUpdateCoordinator):
             target = round(round(target / step) * step, 2)
             current = finite(state.attributes.get("temperature"), 0, 40)
             if current is None or abs(current - target) > 0.05:
-                await self.hass.services.async_call("climate", "set_temperature",
-                    {"entity_id": state.entity_id, "temperature": target}, blocking=True)
+                self._sending_targets[state.entity_id] = target
+                try:
+                    await self.hass.services.async_call("climate", "set_temperature",
+                        {"entity_id": state.entity_id, "temperature": target}, blocking=True)
+                finally:
+                    self._sending_targets.pop(state.entity_id, None)
                 changed = True
+        if self._stopping or not getattr(self.hass, "is_running", True):
+            return
         if state.state != mode:
             await self.hass.services.async_call("climate", "set_hvac_mode",
                 {"entity_id": state.entity_id, "hvac_mode": mode}, blocking=True)
@@ -289,13 +375,57 @@ class HeatingCoordinator(DataUpdateCoordinator):
             raise ValueError("; ".join(errors))
 
     async def async_tick(self, _now=None):
-        if self.lock.locked():
+        if self._stopping or (self.lock.locked() and self._pending_manual_target is None):
             return
         async with self.lock:
             await self._tick()
 
+    def startup_blocked(self, now, temperature, window_unknown):
+        """Read-only startup: wait for HA and stable inputs, then adopt devices."""
+        if not self._startup_pending:
+            return False
+        ready = getattr(self.hass, "is_running", True) and temperature is not None and not window_unknown
+        window = self.state("window_sensor")
+        if window is not None and window.attributes.get("restored"):
+            ready = False
+        devices = {}
+        for key in ("heat_pump", "radiators"):
+            if not self.config.get(key):
+                continue
+            state = self.state(key)
+            target = finite(state.attributes.get("temperature"), 0, 40) if state else None
+            if (not state or state.state in ("unknown", "unavailable") or state.attributes.get("restored")
+                    or (state.state != "off" and target is None)):
+                ready = False
+            else:
+                devices[key] = (state.state, target if target is not None else 7, now.timestamp())
+        if not ready:
+            self._startup_ready_since = None
+            return True
+        self._startup_ready_since = self._startup_ready_since or now.timestamp()
+        if now.timestamp() - self._startup_ready_since < 30:
+            return True
+        self.commands = devices
+        pump = self.state("heat_pump")
+        self._pump_heat_commanded = bool(pump and pump.state == "heat")
+        self.previous = None
+        self._startup_pending = False
+        # Adoption itself must not set temperature, mode, fan or swing.
+        return True
+
     async def _tick(self):
+        if self._stopping:
+            return
         now = dt_util.now()
+        manual_applied = False
+        if self._pending_manual_target:
+            pending, self._pending_manual_target = self._pending_manual_target, None
+            if self.mode == "Automatik" and not self._startup_pending:
+                manual_applied = True
+                self.override = {**pending, "until": next_schedule_time(now, self.config), "duration": "schedule"}
+                self.manual_until = None
+                self.commands = {}
+                self.previous = None
         if self.override and self.override["until"] <= now.timestamp():
             self.override = None
             self.previous = None
@@ -318,13 +448,14 @@ class HeatingCoordinator(DataUpdateCoordinator):
             self.open_since = None
         window_open = self.open_since is not None
         window_pause = window_open and (now - self.open_since).total_seconds() >= self.config["window_delay_seconds"]
+        startup_blocked = self.startup_blocked(now, temp, window_unknown)
         p, r = self.activity()
         healthy_devices = all(self.state(k) and self.state(k).state not in ("unknown", "unavailable") for k in ("heat_pump", "radiators") if self.config.get(k))
         if self.mode == "Automatik" and not window_open and not window_unknown:
             self.detect_manual(now)
         if self.manual_until and self.manual_until <= now:
             self.manual_until = None
-        learn_ok = temp is not None and not temperature_info["learning_paused"] and outside is not None and not window_open and not window_unknown and healthy_devices and self.manual_until is None and p is not None and r is not None
+        learn_ok = not startup_blocked and temp is not None and not temperature_info["learning_paused"] and outside is not None and not window_open and not window_unknown and healthy_devices and self.manual_until is None and p is not None and r is not None
         if learn_ok:
             if self.previous:
                 before = self.previous
@@ -361,16 +492,19 @@ class HeatingCoordinator(DataUpdateCoordinator):
             status = "Terrassentür offen" if window_pause else "Tür offen – Verzögerung"
             reason = "Heizpause; Neustart nach Schließen der Tür" if window_pause else "Warte auf konfigurierte Türverzögerung"
         elif self.manual_until:
-            status, reason = "Manuelle Pause", f"Geräteänderung erkannt; Automatik pausiert bis {self.manual_until.strftime('%H:%M')}"
+            status, reason = "Manuelle Pause", f"Externe Geräteänderung oder Gegenregelung erkannt; Automatik pausiert bis {self.manual_until.strftime('%H:%M')}"
         elif self.mode == "Aus":
             status, reason = "Aus", "Beide Wärmequellen ausgeschaltet; kein Frostschutz durch diesen Manager"
-        if self.mode == "Automatik" or self.mode == "Aus":
+        if startup_blocked:
+            status, reason = "Startphase · Geräte bleiben unverändert", "Warte auf HA und 30 Sekunden gültige Eingangsdaten; vorhandene Heizmodi, Sollwerte und Lüfter werden übernommen. Danach normale Regelung."
+        if not startup_blocked and (self.mode == "Automatik" or self.mode == "Aus"):
             try:
                 if self.mode == "Aus" or temp is None or window_pause or window_unknown:
                     await self.stop_both()
                 elif not window_open and self.manual_until is None and row:
                     # Remove radiator demand before handing over to the heat pump.
-                    await self.command("radiators", "heat" if row["radiators"] else "off", row["target"])
+                    manual_radiator = bool(self.override and self.override.get("source") and row["sources"] in ("both", "radiators"))
+                    await self.command("radiators", "heat" if row["radiators"] or manual_radiator else "off", row["target"])
                     await self.command("heat_pump", "heat" if row["heat_pump"] else "off", row["control_target"])
             except Exception as err:
                 self.error = str(err)
@@ -379,7 +513,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
             self.history.append({"timestamp": now.timestamp(), "time": now.isoformat(), "temperature": temp,
                 "pump_active": p, "radiator_demand": r, "mode": self.mode, "phase": status})
             self.history = self.history[-144:]
-        data = {"status": status, "reason": reason, "mode": self.mode, "temperature": temp,
+        data = {"startup_waiting": startup_blocked, "status": status, "reason": reason, "mode": self.mode, "temperature": temp,
                 "override": {**self.override, "until_iso": datetime.fromtimestamp(self.override["until"], now.tzinfo).isoformat()} if self.override else None,
                 "entry_id": self.entry.entry_id,
                 "temperature_info": temperature_info, "outdoor": outside, "target": row["target"] if row else None,
@@ -390,6 +524,6 @@ class HeatingCoordinator(DataUpdateCoordinator):
                 "error": self.error, "updated": now.isoformat(), "config": self.config,
                 "plan_note": "Normalbetrieb bei geschlossener Tür; manuelle Eingriffe und Störungen nicht vorhersehbar. Keine Verbrauchsprognose."}
         self.async_set_updated_data(data)
-        if now.timestamp() - self.last_save >= 900:
+        if manual_applied or now.timestamp() - self.last_save >= 900:
             await self.async_save()
             self.last_save = now.timestamp()

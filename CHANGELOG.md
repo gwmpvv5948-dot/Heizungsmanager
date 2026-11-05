@@ -1,3 +1,14 @@
+## 0.3.1
+
+- Manuellen Heizkörper-Sollwert als Raumziel bis zur nächsten Planphase übernehmen; automatische Echos und Absenkwerte ausfiltern.
+
+- Identische Gegenbefehle während der 15-Sekunden-Rückmeldefrist nicht erneut senden; dauerhafte externe Gegenregelung führt zur bestehenden sichtbaren Pause.
+- Gerätebefehle ab dem HA-Stop-Ereignis unterbinden, auch bei dann ausfallenden Sensoren.
+- Befehlsfreie Startphase bis HA und benötigte Eingänge stabil verfügbar sind.
+- Geräte beim Start übernehmen statt durch fehlende Startwerte ausschalten.
+- Laufende Midea ohne erneuten Startlüfter-Befehl übernehmen.
+- Monochromes Heizungsmanager-Markenicon in der Seitenleiste.
+
 ## 0.3.0
 - Temperaturhalten statt Abschalten beim erreichten Raumziel, mit weiterhin verbindlichem Tür-, Sensor-, Mindestpausen- und Übertemperaturschutz.
 - Optionaler lokaler PV-Vorrang aus Strommanager-Messwerten, geglättet und mit Bestätigungs-/Haltezeiten; keine PV-bedingte Wärmepumpen-Abschaltung.

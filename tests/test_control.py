@@ -426,6 +426,8 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('Lüfter nicht erreichbar',self.c.data['error'])
         self.assertFalse(self.c._pump_heat_commanded)
         self.service.side_effect=None;self.service.reset_mock()
+        self.states["climate.wz_midea_ac"].state="heat"
+        self.states["climate.wz_midea_ac"].attributes["temperature"]=self.c.commands["heat_pump"][1]
         await self.c.async_tick()
         self.assertTrue(self.c._pump_heat_commanded)
         self.assertTrue(any(c.args[1]=='set_fan_mode' for c in self.service.await_args_list))
@@ -465,3 +467,156 @@ class HoldServiceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.c.data['plan'][0]['control_target'],21)
         calls=[x.args for x in self.service.await_args_list]
         self.assertFalse(any(x[1]=='set_hvac_mode' and x[2].get('entity_id')==pump.entity_id and x[2].get('hvac_mode')=='off' for x in calls))
+
+class RestartTests(unittest.IsolatedAsyncioTestCase):
+    setUp = ControlTests.setUp
+
+    async def test_start_does_not_send_commands_even_when_sensors_missing(self):
+        self.c.mode = 'Automatik'
+        self.c._startup_pending = True
+        self.states['climate.wz_midea_ac'].state = 'heat'
+        self.states['sensor.wz_temp'].state = 'unavailable'
+        await self.c.async_tick()
+        self.service.assert_not_awaited()
+        dt.now=lambda:NOW+timedelta(minutes=10)
+        await self.c.async_tick()
+        self.service.assert_not_awaited()
+        self.assertTrue(self.c.data['startup_waiting'])
+
+    async def test_ready_start_adopts_running_pump_without_resetting_fan_or_target(self):
+        self.c.mode='Automatik'
+        self.c.config['pump_regulation']='hold'
+        self.c._startup_pending=True
+        pump=self.states['climate.wz_midea_ac'];pump.state='heat';pump.attributes['temperature']=21;pump.attributes['fan_mode']='turbo'
+        self.states['sensor.wz_temp'].state='21'
+        await self.c.async_tick()
+        dt.now=lambda:NOW+timedelta(seconds=31)
+        await self.c.async_tick()
+        self.service.assert_not_awaited()
+        self.assertTrue(self.c._pump_heat_commanded)
+        self.assertFalse(self.c._startup_pending)
+        self.assertEqual(pump.attributes['fan_mode'],'turbo')
+        dt.now=lambda:NOW+timedelta(seconds=62)
+        await self.c.async_tick()
+        self.service.assert_not_awaited()
+
+    async def test_ha_not_running_and_restored_states_do_not_control(self):
+        self.c.mode='Aus';self.c._startup_pending=True;self.c.hass.is_running=False
+        await self.c.async_tick();self.service.assert_not_awaited()
+        self.c.hass.is_running=True;self.states['climate.wz_midea_ac'].attributes['restored']=True
+        dt.now=lambda:NOW+timedelta(minutes=1)
+        await self.c.async_tick();self.service.assert_not_awaited()
+        self.assertTrue(self.c._startup_pending)
+
+    async def test_shutdown_only_saves_and_never_switches_devices(self):
+        await self.c.async_shutdown()
+        self.service.assert_not_awaited()
+
+    async def test_stop_event_blocks_sensor_loss_fail_safe_and_queued_commands(self):
+        self.c.mode='Automatik'
+        self.states['climate.wz_midea_ac'].state='heat'
+        self.c.async_stopping()
+        self.states['sensor.wz_temp'].state='unavailable'
+        await self.c.async_tick()
+        await self.c.stop_both()
+        await self.c.command('heat_pump','off',7)
+        self.service.assert_not_awaited()
+
+    async def test_stop_during_awaited_temperature_does_not_send_followup_hvac_or_fan(self):
+        self.c.mode='Automatik'
+        async def stopping_service(domain,service,data,**kw):
+            self.c.async_stopping()
+        self.service.side_effect=stopping_service
+        await self.c.command('heat_pump','heat',21)
+        self.assertEqual(self.service.await_count,1)
+        self.assertEqual(self.service.await_args.args[1],'set_temperature')
+
+    async def test_opposing_regulator_does_not_trigger_subsecond_off_command_storm(self):
+        self.c.mode='Automatik'
+        device=self.states['climate.wz_vtherm'];device.state='heat'
+        await self.c.command('radiators','off',21)
+        self.assertEqual(self.service.await_count,1)
+        for seconds in (1,2,3,5,10,14):
+            dt.now=lambda seconds=seconds:NOW+timedelta(seconds=seconds)
+            # A second regulator keeps changing back to HEAT before confirmation.
+            device.state='heat'
+            await self.c.command('radiators','off',21)
+        self.assertEqual(self.service.await_count,1)
+        dt.now=lambda:NOW+timedelta(seconds=16)
+        self.c.detect_manual(dt.now())
+        self.assertIsNotNone(self.c.manual_until)
+        self.service.reset_mock()
+        await self.c.async_tick()
+        self.service.assert_not_awaited()
+
+class ManualRadiatorTests(unittest.IsolatedAsyncioTestCase):
+    setUp = ControlTests.setUp
+
+    def manual_event(self, target=21):
+        wrapper=self.states['climate.wz_vtherm']
+        wrapper.attributes['temperature']=7
+        wrapper.attributes['vtherm_over_climate']={'underlying_entities':['climate.wz1']}
+        old=state('climate.wz1','heat',temperature=7)
+        new=state('climate.wz1','heat',temperature=target)
+        return types.SimpleNamespace(data={'entity_id':'climate.wz1','old_state':old,'new_state':new})
+
+    async def test_local_knob_becomes_room_target_until_next_phase_even_if_vtherm_resets_it(self):
+        self.c.mode='Automatik'
+        self.c.config['weekday_day_sources']='both'
+        self.c.commands['radiators']=('off',21,NOW.timestamp()-60)
+        event=self.manual_event(21)
+        tasks=[]
+        self.c.hass.async_create_task=lambda coro:tasks.append(asyncio.create_task(coro))
+        self.c.async_changed(event)
+        # VTherm has already reverted the physical target before the queued tick.
+        self.states['climate.wz1']=state('climate.wz1','off',temperature=7)
+        await asyncio.gather(*tasks)
+        self.assertEqual(self.c.override['temperature'],21)
+        self.assertEqual(self.c.override['duration'],'schedule')
+        self.assertEqual(self.c.data['target'],21)
+        calls=[call.args for call in self.service.await_args_list]
+        self.assertTrue(any(a[1]=='set_temperature' and a[2]=={'entity_id':'climate.wz_vtherm','temperature':21} for a in calls))
+        self.assertTrue(any(a[1]=='set_hvac_mode' and a[2]=={'entity_id':'climate.wz_vtherm','hvac_mode':'heat'} for a in calls))
+        self.assertFalse(any(a[1]=='set_hvac_mode' and a[2]=={'entity_id':'climate.wz_vtherm','hvac_mode':'off'} for a in calls))
+        until=self.c.override['until']
+        dt.now=lambda:datetime.fromtimestamp(until+1,tz=timezone.utc)
+        await self.c.async_tick()
+        self.assertIsNone(self.c.override)
+
+    async def test_echoes_low_setbacks_and_startup_restoration_are_not_manual_targets(self):
+        self.c.mode='Automatik'
+        event=self.manual_event(21)
+        self.c._sending_targets['climate.wz_vtherm']=21
+        self.assertIsNone(self.c.manual_temperature(event))
+        self.c._sending_targets.clear()
+        self.states['climate.wz_vtherm'].attributes['temperature']=21
+        self.assertIsNone(self.c.manual_temperature(event))
+        self.states['climate.wz_vtherm'].attributes['temperature']=7
+        self.assertIsNone(self.c.manual_temperature(self.manual_event(7)))
+        self.c._startup_pending=True
+        self.assertIsNone(self.c.manual_temperature(self.manual_event(21)))
+
+    async def test_window_protection_still_has_priority_over_manual_room_target(self):
+        self.c.mode='Automatik'
+        self.c._pending_manual_target={'temperature':21,'source':'climate.wz1'}
+        self.states['binary_sensor.wz_terasse'].state='on'
+        self.states['binary_sensor.wz_terasse'].last_changed=NOW-timedelta(minutes=5)
+        self.states['climate.wz_vtherm'].state='heat'
+        await self.c.async_tick()
+        self.assertEqual(self.c.data['target'],21)
+        self.assertTrue(any(c.args[1]=='set_hvac_mode' and c.args[2].get('entity_id')=='climate.wz_vtherm' and c.args[2].get('hvac_mode')=='off' for c in self.service.await_args_list))
+
+    async def test_wz2_is_supported_and_last_manual_target_wins_for_whole_room(self):
+        self.c.mode='Automatik'
+        self.c.config['weekday_day_sources']='both'
+        event1=self.manual_event(21)
+        self.states['climate.wz_vtherm'].attributes['vtherm_over_climate']['underlying_entities'].append('climate.wz2')
+        event2=types.SimpleNamespace(data={'entity_id':'climate.wz2','old_state':state('climate.wz2','heat',temperature=7),'new_state':state('climate.wz2','heat',temperature=22)})
+        tasks=[]
+        self.c.hass.async_create_task=lambda coro:tasks.append(asyncio.create_task(coro))
+        self.c.async_changed(event1)
+        self.c.async_changed(event2)
+        await asyncio.gather(*tasks)
+        self.assertEqual(self.c.override['temperature'],22)
+        self.assertEqual(self.c.override['source'],'climate.wz2')
+        self.assertEqual(self.c.data['target'],22)

@@ -1,4 +1,4 @@
-# Heizungsmanager · 0.3.0
+# Heizungsmanager · 0.3.1
 
 Lokale Home-Assistant-Custom-Integration mit vier Heizphasen je Raum. Quellcode: [gwmpvv5948-dot/Heizungsmanager](https://github.com/gwmpvv5948-dot/Heizungsmanager). [Versionsübersicht](CHANGELOG.md).
 
@@ -149,3 +149,45 @@ bleibt die Wärmepumpe im Haltebetrieb. Es gibt keine zusätzliche Sollwertanheb
 keine PV-bedingte Heizsperre und keinen Anspruch auf vollständige PV-Deckung.
 Das aktuelle PV-Signal ist keine 24-Stunden-Prognose; im Fahrplan wird es maximal
 fünf Minuten fortgeschrieben. Heizkörperfreigaben darüber hinaus folgen dem Zeitplan.
+
+
+## HA-Neustart und graues Sidebar-Icon (0.3.1)
+
+Beim Start bzw. Neuladen bleibt die Integration zunächst befehlsfrei. Sie wartet,
+bis HA läuft und Raumtemperatur, konfigurierter Fensterkontakt sowie zugeordnete
+Heizgeräte 30 Sekunden lang verfügbar sind. Wiederhergestellte Platzhalter zählen
+nicht als gültige Daten. Fehlende Startwerte lösen kein vorsorgliches Ausschalten
+aus. Der anschließende Übernahmetakt sendet ebenfalls keine Gerätebefehle.
+
+Eine bereits laufende Midea wird einschließlich ihres Lüftermodus übernommen;
+der Startlüfter wird beim Neustart nicht auf Mittel zurückgesetzt. Danach läuft
+die gewählte normale Regelung weiter. Neue Heizanforderungen, Phasenwechsel,
+Fensterpause und Übertemperaturschutz dürfen weiterhin Geräte steuern. Dieser
+Startschutz ändert keine Einstellungen der Midea-/VTherm-Integration selbst.
+Beim HA-Stop-Ereignis werden weitere Regeltakte und Gerätebefehle sofort gesperrt, auch nach bereits wartenden Anfragen. Beim Entladen der Integration werden ausschließlich die lokalen Daten gesichert.
+
+Die Seitenleiste verwendet eine monochrome Fassung des Haus-/Sonne-/Wärme-Icons
+in der von Home Assistant vorgegebenen Sidebar-Farbe (normalerweise Grau).
+
+
+Bei widersprüchlichen Rückmeldungen wird ein identischer Gerätebefehl innerhalb
+der 15-Sekunden-Rückmeldefrist nicht erneut gesendet. Bleibt anschließend ein
+anderer Modus/Sollwert bestehen, greift die sichtbare Pause nach externer
+Geräteänderung. Dies verhindert eine Befehlsflut durch Gegenregelung, ersetzt
+aber nicht das Auflösen widersprüchlicher VTherm-/Geräteeinstellungen.
+
+
+## Sollwert direkt am Heizkörper (0.3.1)
+
+In Automatik wird eine erkennbare manuelle Sollwertänderung (16–24 °C in
+0,5-°C-Schritten) am zugeordneten Heizkörper als temporäres Raumziel für den
+ganzen Raum übernommen. Sie gilt bis zum nächsten regulären Phasenwechsel;
+der gespeicherte Wochenplan bleibt unverändert. In einer Phase mit erlaubten
+Heizkörpern bleibt der gemeinsame Regler für diesen manuellen Wunsch im
+Heizmodus mit dem gewählten Sollwert, statt bei kleiner Temperaturabweichung
+auf die 7-°C-Absenkung zurückzufallen. Fensterpause und Schutzfunktionen gelten
+weiterhin. Aus/Beobachten werden dadurch nicht automatisch aktiviert.
+
+Automatische Sollwert-Echos des gemeinsamen Reglers, Absenkung auf 7 °C und
+Start-/Restore-Platzhalter werden nicht als manuelle Wünsche übernommen.
+Das Panel zeigt die Übernahme und Ablaufzeit; „Zum Zeitplan zurück“ beendet sie.
