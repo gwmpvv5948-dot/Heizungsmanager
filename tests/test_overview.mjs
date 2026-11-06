@@ -10,7 +10,7 @@ test('actual activity wins across devices, open contacts and offline take attent
 test('missing measurements stay unknown; shared electrical sensors are counted once',()=>{
  const c={room_name:'Raum',power_sensor:'sensor.w',pump_daily_energy_sensor:'sensor.e'};
  const states={a:room('a',{config:c}),b:room('b',{config:c}),'sensor.w':{state:'400',attributes:{unit_of_measurement:'W'}},'sensor.e':{state:'2',attributes:{unit_of_measurement:'kWh'}}};
- const h=overviewHTML(states,'all',now);assert.match(h,/0,4 kW/);assert.match(h,/2 kWh/);assert.match(h,/1 Messquelle/);assert.match(h,/ohne Heizwärme/);assert.match(h,/Noch kein Temperaturverlauf/);
+ const h=overviewHTML(states,'all',now);assert.match(h,/0,4 kW/);assert.match(h,/2 <span>kWh/);assert.doesNotMatch(h,/Messquelle|ohne Heizwärme/);assert.match(h,/Strom heute/);assert.match(h,/Noch kein Temperaturverlauf/);
  assert.doesNotMatch(overviewHTML({},'all',now),/NaN|undefined/);
 });
 
@@ -40,5 +40,5 @@ test('overview keeps thermal totals separate from electrical totals and filters'
  const c={room_name:'Raum',radiators:'climate.a',radiator_energy_sensor:'sensor.e',radiator_energy_period:'daily'};
  const states={a:room('a',{config:c}),'sensor.e':{state:'1',attributes:{unit_of_measurement:'kWh',source:'sensor.w'}},'sensor.w':{state:'500',attributes:{unit_of_measurement:'W'}}};
  const h=overviewHTML(states,'attention',now);
- assert.match(h,/Heizkörper jetzt · Wärme/);assert.match(h,/0,5 kW/);assert.match(h,/Heizkörper heute · Wärme/);assert.match(h,/1 kWh/);assert.match(h,/geschätzt/);
+ assert.match(h,/Heizwärme heute/);assert.match(h,/0,5 kW/);assert.match(h,/Geschätzte Heizwärme heute nach Räumen/);assert.match(h,/1 <span>kWh/);assert.match(h,/VTherm-Schätzung/);
 });

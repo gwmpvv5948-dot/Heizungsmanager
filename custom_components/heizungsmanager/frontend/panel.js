@@ -1,6 +1,6 @@
-import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.10';
-import {dayStart} from './consumption.js?v=0.3.10';
-import './heizungsmanager-card.js?v=0.3.10';
+import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.11';
+import {dayStart} from './consumption.js?v=0.3.11';
+import './heizungsmanager-card.js?v=0.3.11';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [
@@ -94,7 +94,7 @@ class HeizungsmanagerPanel extends HTMLElement {
   }
   async refreshRadiatorHistory(){
     const rooms=roomOverview(this._hass.states),zone=this._hass.config?.time_zone||'Europe/Berlin';
-    const ids=[...new Set(rooms.filter(r=>r.config.radiators&&r.config.radiator_energy_sensor&&r.config.radiator_energy_period!=='daily').map(r=>r.config.radiator_energy_sensor))].sort();
+    const ids=[...new Set(rooms.flatMap(r=>[r.config.radiators?r.config.radiator_energy_sensor:null,r.config.pump_daily_energy_sensor]).filter(Boolean))].sort();
     if(!ids.length)return;
     const start=dayStart(new Date(),zone).toISOString(),key=JSON.stringify([start,ids]);
     if(this._radiatorLoading||(key===this._radiatorHistoryKey&&Date.now()-(this._radiatorFetched||0)<60000))return;

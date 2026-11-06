@@ -1,3 +1,8 @@
+## 0.3.11
+
+- Startseite nach neuem Entwurf: schmale Statuszeile und gemeinsame Energiekarte mit Strom und Heizwärme. Tageswerte groß, aktuelle Leistung klein.
+- Echter Stromverlauf als Stundenbalken aus HA-Historie und Heizwärme nach Räumen gestapelt. Schätzung im Tooltip; fehlende Daten dezent markieren. Neue konfigurierte Energiehelfer bleiben die Quelle, keine Beispielwerte.
+
 ## 0.3.10
 
 - Startseite: Heizkörper jetzt (geschätzte Wärmeleistung in kW) und heute (geschätzte Heizenergie in kWh) als Summe aller Räume. Stromverbrauch bleibt getrennt.
