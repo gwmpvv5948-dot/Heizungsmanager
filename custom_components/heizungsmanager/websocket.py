@@ -4,6 +4,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import callback
 from homeassistant.helpers import entity_registry as er
 from .const import DOMAIN
+from .house_heat import get_house_heat
 from .model import ROOMS
 from .config_flow import schema, validate
 
@@ -20,7 +21,7 @@ def payload(hass, coordinator):
         existing = next((item for item in hass.data.get(DOMAIN, {}).values()
                          if hasattr(item, "entry") and item.config.get("room_id", "wohnzimmer") == room_id), None)
         rooms.append({"room_id": room_id, "name": name, "entry_id": existing.entry.entry_id if existing else None})
-    return {"rooms": rooms, "config": coordinator.config, "mode": coordinator.mode, "version": "0.3.11",
+    return {"rooms": rooms, "config": coordinator.config, "mode": coordinator.mode, "version": "0.3.12",
         "plan_entity": registry.async_get_entity_id("sensor", DOMAIN, f"{entry_id}_plan"),
         "mode_entity": registry.async_get_entity_id("select", DOMAIN, f"{entry_id}_mode")}
 
@@ -30,6 +31,8 @@ def async_register_api(hass):
     websocket_api.async_register_command(hass, get_config)
     websocket_api.async_register_command(hass, save_config)
     websocket_api.async_register_command(hass, set_override)
+    websocket_api.async_register_command(hass, house_heat_status)
+    websocket_api.async_register_command(hass, configure_house_heat)
 
 
 @websocket_api.websocket_command({vol.Required("type"): "heizungsmanager/override",
@@ -125,3 +128,30 @@ async def save_config(hass, connection, msg):
     hass.config_entries.async_update_entry(coordinator.entry, options=config)
     # The entry listener applies settings while preserving the selected mode.
     connection.send_result(msg["id"], {"saved": True, "mode": coordinator.mode})
+
+
+@websocket_api.websocket_command({vol.Required("type"): "heizungsmanager/house_heat"})
+@websocket_api.async_response
+async def house_heat_status(hass, connection, msg):
+    if connection.user is None or not connection.user.is_admin:
+        connection.send_error(msg['id'],'unauthorized','Administratorrechte erforderlich')
+        return
+    meter=await get_house_heat(hass)
+    await meter.async_refresh()
+    connection.send_result(msg['id'],meter.status())
+
+
+@websocket_api.websocket_command({vol.Required("type"): "heizungsmanager/configure_house_heat",
+    vol.Required("base_kwh"):vol.Coerce(float),vol.Required("start"):vol.Coerce(float)})
+@websocket_api.async_response
+async def configure_house_heat(hass,connection,msg):
+    if connection.user is None or not connection.user.is_admin:
+        connection.send_error(msg['id'],'unauthorized','Administratorrechte erforderlich')
+        return
+    meter=await get_house_heat(hass)
+    try:
+        await meter.configure(msg['base_kwh'],msg['start'])
+    except ValueError as err:
+        connection.send_error(msg['id'],'invalid_meter',str(err))
+        return
+    connection.send_result(msg['id'],meter.status())

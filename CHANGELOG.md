@@ -1,3 +1,9 @@
+## 0.3.12
+
+- Gemeinsamer konfigurierbarer Haus-Wärmezähler: physischer Ablesewert in kWh und Ablesezeitpunkt, fortgeschrieben um die berechneten Heizkörperzuwächse seit diesem Zeitpunkt.
+- Persistente Fortschreibung im Hintergrund, Zählerrücksetzungen berücksichtigen, gemeinsame Energiequellen nur einmal zählen. Fehlende Historie kennzeichnen. Keine Midea oder Warmwasser-Schätzung.
+- Startwert direkt im Start-Dashboard konfigurierbar; Foto-Wert wird nicht automatisch übernommen.
+
 ## 0.3.11
 
 - Startseite nach neuem Entwurf: schmale Statuszeile und gemeinsame Energiekarte mit Strom und Heizwärme. Tageswerte groß, aktuelle Leistung klein.
