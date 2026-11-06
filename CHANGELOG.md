@@ -1,3 +1,9 @@
+## 0.3.9
+
+- Temperaturverlauf für alle Räume einschließlich Schlafzimmer aus der HA-Recorder-Historie der konfigurierten Sensoren rekonstruieren. Letzte 24 Stunden, Aktualisierung alle zehn Minuten; Gewichtung, Korrekturen und Glättung wie bei der Raumtemperatur.
+- Unveränderte HA-Zustände bleiben bis zur nächsten aufgezeichneten Änderung gültig. Nicht verfügbare Messwerte bleiben unbekannt. Keine Verwendung des nachgeladenen Verlaufs für Gerätebefehle oder Lernen.
+- Schlafzimmer-Verlauf ebenfalls regelmäßig dauerhaft speichern. Eigener Verlauf bleibt Ersatz bei fehlender Recorder-Historie.
+
 ## 0.3.8
 
 - Passende graue Raum-Icons vor den Namen auf dem Start-Dashboard: Sofa, Computer, Kind, Bett und Tür.

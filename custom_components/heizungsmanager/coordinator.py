@@ -13,6 +13,7 @@ from homeassistant.util import dt as dt_util
 from .const import DEFAULTS, DOMAIN
 from .model import ThermalModel, finite, make_plan, next_schedule_time, next_night_time, normalize_config
 from .temperature import RoomTemperature
+from .temperature_history import temperature_history
 from .pv import PVPreference, strommanager_surplus
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,6 +36,8 @@ class HeatingCoordinator(DataUpdateCoordinator):
         self.manual_until = None
         self.open_since = None
         self.history = []
+        self.history_attempted = None
+        self.history_source = "Eigener Verlauf"
         self.unsubs = []
         self.lock = asyncio.Lock()
         self.error = None
@@ -182,6 +185,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
             self._startup_pending = False
             previous_pump = self.config.get("heat_pump")
             self.config = normalize_config({**DEFAULTS, **self.entry.data, **self.entry.options})
+            self.history_attempted = None
             if self.config.get("heat_pump") != previous_pump:
                 self._pump_heat_commanded = False
             self.manual_until = None
@@ -198,6 +202,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
             self.unsubs = [async_track_time_interval(self.hass, self.async_tick, timedelta(seconds=30))]
             self.listen_for_states()
             self.listen_for_stop()
+            await self.async_load_temperature_history()
             await self._tick()
 
     def watched_entities(self):
@@ -390,9 +395,41 @@ class HeatingCoordinator(DataUpdateCoordinator):
         if errors:
             raise ValueError("; ".join(errors))
 
+    async def async_load_temperature_history(self):
+        now=dt_util.now()
+        if self.history_attempted is not None and now.timestamp()-self.history_attempted<600:
+            return
+        self.history_attempted=now.timestamp()
+        if not hasattr(self.hass,'async_add_executor_job'):
+            return
+        config=dict(self.config)
+        ids=list(dict.fromkeys(config.get(key) for key in ('temperature_sensor','secondary_temperature_sensor') if config.get(key)))
+        if not ids:
+            return
+        try:
+            from homeassistant.components.recorder import get_instance, history
+            start=(now-timedelta(hours=24)).replace(second=0,microsecond=0)
+            def read():
+                records=history.get_significant_states(self.hass,start-timedelta(hours=1),now,ids,
+                    include_start_time_state=True,significant_changes_only=False,minimal_response=False,no_attributes=False)
+                return temperature_history(records,start.timestamp(),now.timestamp(),config)
+            points=await get_instance(self.hass).async_add_executor_job(read)
+            # Discard a response from an old mapping or a stopped integration.
+            if self._stopping or config!=self.config:
+                return
+            if points:
+                self.history=points
+                self.history_source='Home Assistant Recorder'
+            else:
+                self.history_source='Eigener Verlauf · keine HA-Historie vorhanden'
+        except Exception as err:
+            self.history_source='Eigener Verlauf · HA-Historie derzeit nicht verfügbar'
+            _LOGGER.debug('Temperaturhistorie nicht verfügbar: %s',err)
+
     async def async_tick(self, _now=None):
         if self._stopping or (self.lock.locked() and self._pending_manual_target is None):
             return
+        await self.async_load_temperature_history()
         async with self.lock:
             await self._tick()
 
@@ -442,7 +479,10 @@ class HeatingCoordinator(DataUpdateCoordinator):
                 self.history = self.history[-144:]
             self.async_set_updated_data({"entry_id":self.entry.entry_id,"config":self.config,"temperature":temperature,
                 "temperature_info":info,"target":None,"outdoor":None,"plan":[],"history":self.history,
-                "mode":"Temperaturanzeige","status":"Nur Temperatur","updated":now.isoformat(),"error":None})
+                "mode":"Temperaturanzeige","status":"Nur Temperatur","updated":now.isoformat(),"error":None,"history_source":self.history_source})
+            if now.timestamp()-self.last_save>=900:
+                await self.async_save()
+                self.last_save=now.timestamp()
             return
         manual_applied = False
         if self._pending_manual_target:
@@ -549,6 +589,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
                 "pv_preference":pv_status,"plan": plan, "history": self.history, "model": self.model.dump(),
                 "learning_quality": self.model.quality, "weather_note": self.weather_note,
                 "error": self.error, "updated": now.isoformat(), "config": self.config,
+                "history_source": self.history_source,
                 "plan_note": "Normalbetrieb bei geschlossener Tür; manuelle Eingriffe und Störungen nicht vorhersehbar. Keine Verbrauchsprognose."}
         self.async_set_updated_data(data)
         if manual_applied or now.timestamp() - self.last_save >= 900:
