@@ -174,3 +174,15 @@ class ModelTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class NightOverrideTests(unittest.TestCase):
+    def test_night_means_night_not_next_day_phase(self):
+        cfg=m.normalize_config(c.DEFAULTS)
+        now=datetime(2026,11,6,10,tzinfo=TZ)
+        expiry=datetime.fromtimestamp(m.next_night_time(now,cfg),TZ)
+        self.assertEqual(expiry.date(),now.date())
+        self.assertEqual(expiry.strftime('%H:%M'),cfg['weekday_night_start'][:5])
+        late=datetime(2026,11,6,23,tzinfo=TZ)
+        expiry=datetime.fromtimestamp(m.next_night_time(late,cfg),TZ)
+        self.assertEqual(expiry.day,7)
+        self.assertEqual(expiry.strftime('%H:%M'),cfg['weekend_night_start'][:5])

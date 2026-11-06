@@ -150,6 +150,18 @@ def heat_demand(temp, target, active, hysteresis):
     return temp < target if active else temp < target - hysteresis
 
 
+def next_night_time(now, config):
+    """Next local night boundary, including weekends and timezone/DST."""
+    config = normalize_config(config)
+    for days in range(3):
+        day = now + timedelta(days=days)
+        kind = "weekend" if day.weekday() >= 5 else "weekday"
+        boundary = local_at(day.date(),config[f"{kind}_night_start"],now.tzinfo)
+        if boundary.timestamp() > now.timestamp():
+            return boundary.timestamp()
+    raise ValueError("Nächste Nachtphase fehlt")
+
+
 def next_schedule_time(now, config):
     config = normalize_config(config)
     boundaries = []

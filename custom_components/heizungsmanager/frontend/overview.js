@@ -1,5 +1,5 @@
-import {equipmentStatus} from './equipment.js?v=0.3.6';
-import {powerWatts,energyKwh} from './consumption.js?v=0.3.6';
+import {equipmentStatus} from './equipment.js?v=0.3.7';
+import {powerWatts,energyKwh} from './consumption.js?v=0.3.7';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=(v,d=1)=>Number.isFinite(v)?v.toLocaleString('de-DE',{maximumFractionDigits:d}):'—';
 const ok=s=>s&&!['unknown','unavailable'].includes(s.state)&&!s.attributes?.restored;

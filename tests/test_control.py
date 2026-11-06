@@ -639,3 +639,12 @@ class ManualRadiatorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.c.data['plan'],[])
         self.assertIsNone(self.c.data['target'])
         self.service.assert_not_awaited()
+
+    async def test_four_hour_and_night_overrides_have_correct_expiry(self):
+        self.c.mode='Beobachten'
+        await self.c.async_set_override(21,'4h')
+        self.assertEqual(self.c.override['until'],NOW.timestamp()+14400)
+        await self.c.async_set_override(21,'night')
+        from test_heating.model import next_night_time
+        self.assertEqual(self.c.override['until'],next_night_time(NOW,self.c.config))
+        self.assertGreater(self.c.override['until'],NOW.timestamp())

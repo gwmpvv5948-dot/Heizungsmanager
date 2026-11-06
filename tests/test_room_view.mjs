@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {roomView,roomChart,phaseGroups} from '../custom_components/heizungsmanager/frontend/room-view.js';
+const t=Date.parse('2026-11-06T12:00:00Z');
+const plan=Array.from({length:145},(_,i)=>({time:new Date(t+i*600000).toISOString(),phase:i<50?'Tag':'Nacht',target:i<50?21:18,temperature:21-i/100,sources:i<50?'both':'radiators',heat_pump:i<50,radiators:true}));
+test('chart has separate planned tracks and step target without erasing forecast',()=>{const h=roomChart(plan);assert.match(h,/Klima/);assert.match(h,/>HK</);assert.match(h,/stroke-dasharray="6 5"/);assert.match(h,/H[0-9.]+V/);assert.equal(phaseGroups(plan).length,2);});
+test('room page shows durations, honest device opening and no actuator options in status',()=>{const h=roomView({a:{plan,mode:'Aus',temperature:20,target:21,model:{}},cfg:{room_name:'Test'},equipment:[{kind:'radiator',target:7,valveClosing:80,mode:'Aus',action:'Bereit'}],energy:[],temperature:21,duration:'4h',modeEntity:'select.mode'});assert.match(h,/kein Frostschutz/);assert.match(h,/data-duration="4h" aria-pressed="true"/);assert.match(h,/data-duration="night"/);assert.match(h,/20 % offen \(Reglervorgabe\)/);assert.doesNotMatch(h,/data-fan-mode/);assert.doesNotMatch(h,/NaN|undefined/);});

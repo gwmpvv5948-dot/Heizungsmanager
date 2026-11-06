@@ -11,7 +11,7 @@ from homeassistant.helpers.event import async_track_time_interval, async_track_s
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 from .const import DEFAULTS, DOMAIN
-from .model import ThermalModel, finite, make_plan, next_schedule_time, normalize_config
+from .model import ThermalModel, finite, make_plan, next_schedule_time, next_night_time, normalize_config
 from .temperature import RoomTemperature
 from .pv import PVPreference, strommanager_surplus
 
@@ -93,12 +93,12 @@ class HeatingCoordinator(DataUpdateCoordinator):
             temperature = finite(temperature, 16, 24)
             if temperature is None or abs(temperature * 2 - round(temperature * 2)) > 0.001:
                 raise ValueError("Bitte 16 bis 24 °C in Schritten von 0,5 °C wählen.")
-            if duration not in ("1h", "2h", "schedule"):
+            if duration not in ("1h", "2h", "4h", "night", "schedule"):
                 raise ValueError("Ungültige Dauer")
         async with self.lock:
             self._startup_pending = False
             now = dt_util.now()
-            until = next_schedule_time(now, self.config) if duration == "schedule" else now.timestamp() + (3600 if duration == "1h" else 7200)
+            until = next_schedule_time(now, self.config) if duration == "schedule" else next_night_time(now,self.config) if duration == "night" else now.timestamp() + {"1h":3600,"2h":7200,"4h":14400}[duration]
             self.override = {"temperature": temperature, "until": until, "duration": duration} if temperature is not None else None
             self.manual_until = None
             self.commands = {}
