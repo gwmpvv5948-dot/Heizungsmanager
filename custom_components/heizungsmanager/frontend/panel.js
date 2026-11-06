@@ -1,7 +1,7 @@
-import {houseHeatView,bindHouseHeat,houseHeatCSS} from './house-heat-view.js?v=0.3.12';
-import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.12';
-import {dayStart} from './consumption.js?v=0.3.12';
-import './heizungsmanager-card.js?v=0.3.12';
+import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.13';
+import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.13';
+import {dayStart} from './consumption.js?v=0.3.13';
+import './heizungsmanager-card.js?v=0.3.13';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [
@@ -119,15 +119,11 @@ class HeizungsmanagerPanel extends HTMLElement {
     if(!content||this.tab!=='home')return;
     this.refreshRadiatorHistory();
     this.refreshHouseHeat();
-    if(this.shadowRoot.activeElement?.matches('#house-heat-form input'))return;
     const zone=this._hass.config?.time_zone||'Europe/Berlin';
-    const meter=houseHeatView(this._houseHeat||{},this._houseHeatDraft,zone);
+    const meter=houseHeatView(this._houseHeat||{},zone);
     const html=overviewHTML(this._hass.states,this.homeFilter||'all',Date.now(),this._radiatorHistory||{},zone).replace('<nav class="home-filters"',meter+'<nav class="home-filters"');
     if(content.innerHTML===html)return;
-    const meterOpen=content.querySelector('.house-heat-settings')?.open;
     content.innerHTML=html;
-    if(meterOpen)content.querySelector('.house-heat-settings').open=true;
-    bindHouseHeat(this);
     content.querySelectorAll('[data-home-filter]').forEach(button=>button.onclick=()=>{this.homeFilter=button.dataset.homeFilter;this.updateOverview();});
     content.querySelectorAll('[data-open-room]').forEach(button=>button.onclick=async()=>{
       this.selectedEntry=button.dataset.openRoom;this.tab='plan';this._loaded=false;this._dirty=false;await this.maybeLoad();

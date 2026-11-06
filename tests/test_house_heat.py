@@ -45,3 +45,22 @@ class HouseMeterConfigTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(meter.status()['total_kwh'],34759)
         self.assertTrue(meter.status()['incomplete'])
         meter.store.async_save.assert_awaited()
+
+class SeparateHouseSettingsTests(unittest.IsolatedAsyncioTestCase):
+    async def test_number_then_datetime_and_reverse_both_preserve_other_setting(self):
+        from unittest.mock import AsyncMock
+        date=datetime(2020,1,1,tzinfo=timezone.utc)
+        for first in ('base','time'):
+            meter=HouseHeat(N(data={'heizungsmanager':{}},states=N(get=lambda _:None)))
+            meter.store.async_save=AsyncMock()
+            if first=='base':
+                await meter.set_base(34759)
+                self.assertFalse(meter.status()['configured'])
+                await meter.set_start(date)
+            else:
+                await meter.set_start(date)
+                self.assertFalse(meter.status()['configured'])
+                await meter.set_base(34759)
+            self.assertTrue(meter.status()['configured'])
+            self.assertEqual(meter.data['base_kwh'],34759)
+            self.assertEqual(meter.data['start'],date.timestamp())

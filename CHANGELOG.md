@@ -1,3 +1,8 @@
+## 0.3.13
+
+- Haus-Wärmezähler ausschließlich über zwei Konfigurationsentitäten in der Heizungsmanager-Integration einrichten: Startwert (kWh) und Ablesezeitpunkt. Dashboard zeigt nur den fortgeschriebenen Schätzwert.
+- Beide Werte getrennt einstellbar; Fortschreibung beginnt erst, wenn beide vorhanden sind.
+
 ## 0.3.12
 
 - Gemeinsamer konfigurierbarer Haus-Wärmezähler: physischer Ablesewert in kWh und Ablesezeitpunkt, fortgeschrieben um die berechneten Heizkörperzuwächse seit diesem Zeitpunkt.

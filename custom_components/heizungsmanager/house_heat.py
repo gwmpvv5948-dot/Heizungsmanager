@@ -49,6 +49,7 @@ class HouseHeat:
         self.data={}
         self.attempted=None
         self.error=None
+        self.owner_entry_id=None
 
     async def initialize(self):
         async with self.lock:
@@ -68,8 +69,29 @@ class HouseHeat:
             await self.store.async_save(self.data)
         await self.async_refresh()
 
+    async def set_base(self,value):
+        if type(value) not in (int,float) or not math.isfinite(value) or not 0<=value<=1e9:
+            raise ValueError('Startwert in kWh muss zwischen 0 und 1.000.000.000 liegen')
+        async with self.lock:
+            self.data={'base_kwh':value,'start':self.data.get('start'),'rooms':{}}
+            self.attempted=None
+            await self.store.async_save(self.data)
+        await self.async_refresh()
+
+    async def set_start(self,value):
+        if value.tzinfo is None:
+            raise ValueError('Ablesezeitpunkt muss eine Zeitzone enthalten')
+        stamp=value.timestamp()
+        if not 0<stamp<=datetime.now(timezone.utc).timestamp():
+            raise ValueError('Ablesezeitpunkt muss in der Vergangenheit liegen')
+        async with self.lock:
+            self.data={'base_kwh':self.data.get('base_kwh'),'start':stamp,'rooms':{}}
+            self.attempted=None
+            await self.store.async_save(self.data)
+        await self.async_refresh()
+
     async def async_refresh(self,_event=None):
-        if self.lock.locked() or self.data.get('start') is None:
+        if self.lock.locked() or (self.data.get('start') is None or self.data.get('base_kwh') is None):
             return
         now=datetime.now(timezone.utc).timestamp()
         if self.attempted is not None and now-self.attempted<60:
@@ -109,7 +131,7 @@ class HouseHeat:
                 self.error='Fortschreibung wartet auf HA-Messdaten'
 
     def status(self):
-        configured=self.data.get('start') is not None
+        configured=self.data.get('start') is not None and self.data.get('base_kwh') is not None
         rooms=self.data.get('rooms',{})
         added=sum(r.get('added',0) for r in rooms.values())
         return {'configured':configured,'base_kwh':self.data.get('base_kwh'),'start':self.data.get('start'),

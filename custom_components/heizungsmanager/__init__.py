@@ -11,7 +11,7 @@ from .const import DOMAIN
 from .coordinator import HeatingCoordinator
 from .websocket import async_register_api
 
-PLATFORMS = [Platform.SENSOR, Platform.SELECT]
+PLATFORMS = [Platform.SENSOR, Platform.SELECT, Platform.NUMBER, Platform.DATETIME]
 
 
 async def async_setup_entry(hass, entry):
@@ -20,7 +20,7 @@ async def async_setup_entry(hass, entry):
         await hass.http.async_register_static_paths([StaticPathConfig(
             "/heizungsmanager-static",
             str(Path(__file__).parent / "frontend"), False)])
-        frontend.add_extra_js_url(hass, "/heizungsmanager-static/sidebar-icon.js?v=0.3.12")
+        frontend.add_extra_js_url(hass, "/heizungsmanager-static/sidebar-icon.js?v=0.3.13")
         domain_data["static_registered"] = True
         async_register_api(hass)
     coordinator = HeatingCoordinator(hass, entry)
@@ -29,11 +29,14 @@ async def async_setup_entry(hass, entry):
     if not domain_data.get("house_heat_unsub"):
         meter=await get_house_heat(hass)
         domain_data["house_heat_unsub"]=async_track_time_interval(hass,meter.async_refresh,timedelta(minutes=5))
+    meter=await get_house_heat(hass)
+    if meter.owner_entry_id is None:
+        meter.owner_entry_id=entry.entry_id
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     if not domain_data.get("panel_registered"):
         await async_register_panel(hass, frontend_url_path="heizungsmanager",
             webcomponent_name="heizungsmanager-panel", sidebar_title="Heizungsmanager",
-            sidebar_icon="heizungsmanager:heating", module_url="/heizungsmanager-static/panel.js?v=0.3.12",
+            sidebar_icon="heizungsmanager:heating", module_url="/heizungsmanager-static/panel.js?v=0.3.13",
             config={"entry_id": entry.entry_id}, require_admin=True)
         domain_data["panel_registered"] = True
     entry.async_on_unload(entry.add_update_listener(async_options_updated))
@@ -54,10 +57,11 @@ async def async_unload_entry(hass, entry):
         hass.data[DOMAIN]["panel_registered"] = False
         if not remaining and hass.data[DOMAIN].get("house_heat_unsub"):
             hass.data[DOMAIN].pop("house_heat_unsub")()
+            hass.data[DOMAIN]["house_heat"].owner_entry_id=None
         if remaining:
             await async_register_panel(hass, frontend_url_path="heizungsmanager",
                 webcomponent_name="heizungsmanager-panel", sidebar_title="Heizungsmanager",
-                sidebar_icon="heizungsmanager:heating", module_url="/heizungsmanager-static/panel.js?v=0.3.12",
+                sidebar_icon="heizungsmanager:heating", module_url="/heizungsmanager-static/panel.js?v=0.3.13",
                 config={"entry_id": remaining[0].entry.entry_id}, require_admin=True)
             hass.data[DOMAIN]["panel_registered"] = True
         return True
