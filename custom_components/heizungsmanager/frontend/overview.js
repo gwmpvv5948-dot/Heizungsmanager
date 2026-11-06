@@ -1,5 +1,5 @@
-import {equipmentStatus} from './equipment.js?v=0.3.5';
-import {powerWatts,energyKwh} from './consumption.js?v=0.3.5';
+import {equipmentStatus} from './equipment.js?v=0.3.6';
+import {powerWatts,energyKwh} from './consumption.js?v=0.3.6';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=(v,d=1)=>Number.isFinite(v)?v.toLocaleString('de-DE',{maximumFractionDigits:d}):'—';
 const ok=s=>s&&!['unknown','unavailable'].includes(s.state)&&!s.attributes?.restored;
@@ -16,8 +16,8 @@ export function roomOverview(states,now=Date.now()){
   const rank=offline?0:a.window_unknown||a.window_open?1:status==='Heizt'?2:3;
   const next=a.plan.find(p=>Number.isFinite(p.target)&&p.target!==a.target);
   const context=offline?'Gerät oder Raumdaten fehlen / sind veraltet':a.window_open?(a.status?.includes('Tür')||a.status?.includes('Fenster')?a.reason:'Tür/Fenster offen · Schutzregel aktiv'):next?`ab ${new Date(next.time).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} → ${num(next.target)}°`:`${a.mode} · ${a.status||'Kein nächster Zielwechsel'}`;
-  return {id:a.entry_id,name:c.room_name||c.room_id,status,rank,heating:!offline&&heating,temp:offline?null:a.temperature,target:a.target,outdoor:a.outdoor,context,history:a.history||[],devices:[devices.some(d=>d.kind==='heat_pump')?'Klima':null,devices.filter(d=>d.kind==='radiator').length?`${devices.filter(d=>d.kind==='radiator').length} Heizkörper`:null].filter(Boolean).join(' · '),powerId:c.power_sensor,energyId:c.pump_daily_energy_sensor,watts:powerWatts(states[c.power_sensor]),energy:energyKwh(states[c.pump_daily_energy_sensor])};
- }).sort((a,b)=>a.rank-b.rank||a.name.localeCompare(b.name,'de'));
+  return {id:a.entry_id,roomId:c.room_id,name:c.room_name||c.room_id,status,rank,heating:!offline&&heating,temp:offline?null:a.temperature,target:a.target,outdoor:a.outdoor,context,history:a.history||[],devices:[devices.some(d=>d.kind==='heat_pump')?'Klima':null,devices.filter(d=>d.kind==='radiator').length?`${devices.filter(d=>d.kind==='radiator').length} Heizkörper`:null].filter(Boolean).join(' · '),powerId:c.power_sensor,energyId:c.pump_daily_energy_sensor,watts:powerWatts(states[c.power_sensor]),energy:energyKwh(states[c.pump_daily_energy_sensor])};
+ }).sort((a,b)=>Math.min(a.rank,2)-Math.min(b.rank,2)||(a.roomId==='wohnzimmer'?0:1)-(b.roomId==='wohnzimmer'?0:1)||a.rank-b.rank||a.name.localeCompare(b.name,'de'));
 }
 function spark(r,now){
  const start=now-6*3600000,points=r.history.map(p=>({t:p.timestamp*1000,v:p.temperature})).filter(p=>p.t>=start&&p.t<=now),valid=points.filter(p=>Number.isFinite(p.v));

@@ -13,3 +13,10 @@ test('missing measurements stay unknown; shared electrical sensors are counted o
  const h=overviewHTML(states,'all',now);assert.match(h,/0,4 kW/);assert.match(h,/2 kWh/);assert.match(h,/1 Messquelle/);assert.match(h,/ohne Heizwärme/);assert.match(h,/Noch kein Temperaturverlauf/);
  assert.doesNotMatch(overviewHTML({},'all',now),/NaN|undefined/);
 });
+
+test('living room comes first without attention, warnings still precede it',()=>{
+ const states={a:room('Arbeitszimmer'),w:room('Wohnzimmer',{config:{room_id:'wohnzimmer',room_name:'Wohnzimmer',radiators:'climate.w'}}),'climate.Arbeitszimmer':{state:'heat',attributes:{valve_open_percent:70}},'climate.w':{state:'off',attributes:{valve_open_percent:0}}};
+ assert.equal(roomOverview(states,now)[0].name,'Wohnzimmer');
+ states.a.attributes.window_open=true;
+ assert.equal(roomOverview(states,now)[0].name,'Arbeitszimmer');
+});

@@ -1,5 +1,5 @@
-import {overviewHTML,overviewCSS} from './overview.js?v=0.3.5';
-import './heizungsmanager-card.js?v=0.3.5';
+import {overviewHTML,overviewCSS} from './overview.js?v=0.3.6';
+import './heizungsmanager-card.js?v=0.3.6';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [
