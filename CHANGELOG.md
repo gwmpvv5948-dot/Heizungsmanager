@@ -1,3 +1,7 @@
+## 0.3.8
+
+- Passende graue Raum-Icons vor den Namen auf dem Start-Dashboard: Sofa, Computer, Kind, Bett und Tür.
+
 ## 0.3.2
 
 - Heiz-Fahrplan: Midea grün, Heizkörper orange, gemeinsame Phasen orange/grün schraffiert.
