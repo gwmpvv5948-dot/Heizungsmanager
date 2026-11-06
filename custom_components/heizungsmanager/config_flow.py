@@ -64,6 +64,8 @@ def validate(data):
     if data.get("heat_pump") and data.get("heat_pump") == data.get("radiators"):
         return "same_device"
     if not data.get("heat_pump") and not data.get("radiators"):
+        if data.get("room_id") == "schlafzimmer":
+            return None
         return "missing_heater"
     for kind in ("weekday", "weekend"):
         for key, _ in PHASES:
@@ -117,9 +119,21 @@ class HeizungsmanagerFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._room_id = user_input["room_id"]
             await self.async_set_unique_id(self._room_id)
             self._abort_if_unique_id_configured()
-            return await self.async_step_user()
+            return await self.async_step_temperature() if self._room_id == "schlafzimmer" else await self.async_step_user()
         return self.async_show_form(step_id="room", data_schema=vol.Schema({
             vol.Required("room_id", default="wohnzimmer"): vol.In(ROOMS)}))
+
+    async def async_step_temperature(self, user_input=None):
+        if user_input is not None:
+            values = normalize_config({**DEFAULTS,"room_id":"schlafzimmer","temperature_sensor":user_input["temperature_sensor"]})
+            for key in ("heat_pump","radiators","window_sensor","secondary_temperature_sensor","weather","power_sensor","pump_daily_energy_sensor","radiator_energy_sensor"):
+                values[key] = ""
+            for kind in ("weekday","weekend"):
+                for phase,_ in PHASES:
+                    values[f"{kind}_{phase}_sources"] = "off"
+            return self.async_create_entry(title="Heizungsmanager Schlafzimmer",data=values)
+        return self.async_show_form(step_id="temperature",data_schema=vol.Schema({
+            vol.Required("temperature_sensor",default="sensor.sz_temp"):selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor",device_class="temperature"))}))
 
     @staticmethod
     @callback

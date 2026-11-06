@@ -629,3 +629,13 @@ class ManualRadiatorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.c.manual_temperature(self.manual_event(22))['temperature'],22)
         self.c._recent_radiator_targets=[(20.5,NOW.timestamp()-121)]
         self.assertEqual(self.c.manual_temperature(self.manual_event(20.5))['temperature'],20.5)
+
+    async def test_temperature_only_bedroom_has_no_plan_or_device_calls(self):
+        self.c.config.update(room_id='schlafzimmer',room_name='Schlafzimmer',radiators='',heat_pump='')
+        self.c.mode='Automatik'
+        await self.c.async_tick()
+        self.assertEqual(self.c.data['mode'],'Temperaturanzeige')
+        self.assertIsNotNone(self.c.data['temperature'])
+        self.assertEqual(self.c.data['plan'],[])
+        self.assertIsNone(self.c.data['target'])
+        self.service.assert_not_awaited()

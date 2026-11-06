@@ -20,7 +20,7 @@ def payload(hass, coordinator):
         existing = next((item for item in hass.data.get(DOMAIN, {}).values()
                          if hasattr(item, "entry") and item.config.get("room_id", "wohnzimmer") == room_id), None)
         rooms.append({"room_id": room_id, "name": name, "entry_id": existing.entry.entry_id if existing else None})
-    return {"rooms": rooms, "config": coordinator.config, "mode": coordinator.mode, "version": "0.3.4",
+    return {"rooms": rooms, "config": coordinator.config, "mode": coordinator.mode, "version": "0.3.5",
         "plan_entity": registry.async_get_entity_id("sensor", DOMAIN, f"{entry_id}_plan"),
         "mode_entity": registry.async_get_entity_id("select", DOMAIN, f"{entry_id}_mode")}
 

@@ -433,6 +433,17 @@ class HeatingCoordinator(DataUpdateCoordinator):
         if self._stopping:
             return
         now = dt_util.now()
+        if self.config.get("room_id") == "schlafzimmer" and not any(self.config.get(key) for key in ("radiators","heat_pump")):
+            info = self.read_room_temperature(now)
+            temperature = info.get("value")
+            # Reuse the normal combined/smoothed reading without any planner or actuator calls.
+            if not self.history or now.timestamp()-self.history[-1]["timestamp"] >= 600:
+                self.history.append({"timestamp":now.timestamp(),"time":now.isoformat(),"temperature":temperature})
+                self.history = self.history[-144:]
+            self.async_set_updated_data({"entry_id":self.entry.entry_id,"config":self.config,"temperature":temperature,
+                "temperature_info":info,"target":None,"outdoor":None,"plan":[],"history":self.history,
+                "mode":"Temperaturanzeige","status":"Nur Temperatur","updated":now.isoformat(),"error":None})
+            return
         manual_applied = False
         if self._pending_manual_target:
             pending, self._pending_manual_target = self._pending_manual_target, None

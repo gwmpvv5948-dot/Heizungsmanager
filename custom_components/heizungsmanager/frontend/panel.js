@@ -1,5 +1,5 @@
-import {overviewHTML,overviewCSS} from './overview.js?v=0.3.4';
-import './heizungsmanager-card.js?v=0.3.4';
+import {overviewHTML,overviewCSS} from './overview.js?v=0.3.5';
+import './heizungsmanager-card.js?v=0.3.5';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [
@@ -66,6 +66,7 @@ class HeizungsmanagerPanel extends HTMLElement {
     if(card) card.hass=value;
     this.maybeLoad();
     if(this._loaded&&this.tab==='home')this.updateOverview();
+    else if(this._loaded&&this.tab==='plan'&&this.settings.config.room_id==='schlafzimmer'&&!this.settings.config.radiators&&!this.settings.config.heat_pump)this.render();
   }
   connectedCallback() { this.maybeLoad(); }
   get entryId() { return this.selectedEntry || this._panel?.config?.entry_id; }
@@ -131,8 +132,15 @@ class HeizungsmanagerPanel extends HTMLElement {
       this.tab=button.dataset.tab;this.render();
     }));
     const content=this.shadowRoot.querySelector('#content');
+    if(this.settings.config.room_id==='schlafzimmer'&&!this.settings.config.radiators&&!this.settings.config.heat_pump)this.shadowRoot.querySelector('[data-tab="settings"]').hidden=true;
     if(this.tab==='home') {this.updateOverview();}
     else if(this.tab==='plan') {
+      const temperatureOnly=this.settings.config.room_id==='schlafzimmer'&&!this.settings.config.radiators&&!this.settings.config.heat_pump;
+      if(temperatureOnly){
+        const state=this._hass.states[this.settings.plan_entity],value=state?.attributes?.temperature;
+        content.innerHTML=`<section class="section"><h2>Schlafzimmer</h2><p style="font-size:44px;margin:20px 0">${Number.isFinite(value)?value.toLocaleString('de-DE',{maximumFractionDigits:1})+' °C':'—'}</p><p>Nur Temperaturanzeige · kein Heizplan und keine Heizungssteuerung.</p><small>${escapeHTML(this.settings.config.temperature_sensor)}</small></section>`;
+        return;
+      }
       const card=document.createElement('heizungsmanager-card');
       card.setConfig({entity:this.settings.plan_entity || 'sensor.heizungsmanager_wz_fahrplan',mode_entity:this.settings.mode_entity});
       card.hass=this._hass; content.append(card);

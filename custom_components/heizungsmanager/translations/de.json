@@ -68,6 +68,13 @@
         "data": {
           "room_id": "Raum"
         }
+      },
+      "temperature": {
+        "title": "Schlafzimmer · Temperaturanzeige",
+        "description": "Nur die Temperatur anzeigen. Kein Heizplan und keine Gerätebefehle.",
+        "data": {
+          "temperature_sensor": "Temperatursensor"
+        }
       }
     },
     "error": {

@@ -83,7 +83,7 @@ def local_at(day, clock, tz):
 
 PHASES = (("morning", "Morgens"), ("day", "Tag"), ("evening", "Abend"), ("night", "Nacht"))
 SOURCES = {"both": "Midea + Heizkörper", "heat_pump": "Midea", "radiators": "Heizkörper", "off": "Keine Wärmequelle"}
-ROOMS = {"wohnzimmer": "Wohnzimmer", "arbeitszimmer": "Arbeitszimmer", "alwin": "Alwin", "carla": "Carla", "flur": "Flur"}
+ROOMS = {"wohnzimmer": "Wohnzimmer", "arbeitszimmer": "Arbeitszimmer", "alwin": "Alwin", "carla": "Carla", "flur": "Flur", "schlafzimmer": "Schlafzimmer"}
 
 
 def normalize_config(config):
