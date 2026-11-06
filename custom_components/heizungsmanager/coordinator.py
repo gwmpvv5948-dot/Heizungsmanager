@@ -49,6 +49,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
         self._stopping = False
         self._pending_manual_target = None
         self._sending_targets = {}
+        self._recent_radiator_targets = []
 
     async def async_initialize(self):
         self._startup_pending = True
@@ -134,6 +135,10 @@ class HeatingCoordinator(DataUpdateCoordinator):
         before = finite(old.attributes.get("temperature"), 0, 40)
         target = finite(new.attributes.get("temperature"), 16, 24)
         if before is None or target is None or abs(target-before)<0.15 or abs(target*2-round(target*2))>0.001:
+            return None
+        now = dt_util.now().timestamp()
+        self._recent_radiator_targets = [(value,stamp) for value,stamp in self._recent_radiator_targets if 0 <= now-stamp < 120]
+        if any(abs(target-value)<0.15 for value,stamp in self._recent_radiator_targets):
             return None
         own = self._sending_targets.get(self.config.get("radiators"))
         previous = self.commands.get("radiators")
@@ -339,6 +344,17 @@ class HeatingCoordinator(DataUpdateCoordinator):
             target = round(round(target / step) * step, 2)
             current = finite(state.attributes.get("temperature"), 0, 40)
             if current is None or abs(current - target) > 0.05:
+                if key == "radiators":
+                    now = dt_util.now().timestamp()
+                    # Both TRVs can report the old or new target long after the
+                    # wrapper command. Neither is a fresh physical knob choice.
+                    values = [target,current]
+                    for entity_id in self.radiator_entities():
+                        device = self.hass.states.get(entity_id)
+                        if device:
+                            values.append(finite(device.attributes.get("temperature"),0,40))
+                    self._recent_radiator_targets = [(value,stamp) for value,stamp in self._recent_radiator_targets if 0 <= now-stamp < 120]
+                    self._recent_radiator_targets.extend((value,now) for value in values if value is not None)
                 self._sending_targets[state.entity_id] = target
                 try:
                     await self.hass.services.async_call("climate", "set_temperature",

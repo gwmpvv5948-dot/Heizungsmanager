@@ -1,4 +1,4 @@
-import './heizungsmanager-card.js?v=0.3.2';
+import './heizungsmanager-card.js?v=0.3.3';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [

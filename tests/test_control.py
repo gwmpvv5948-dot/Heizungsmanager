@@ -620,3 +620,12 @@ class ManualRadiatorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.c.override['temperature'],22)
         self.assertEqual(self.c.override['source'],'climate.wz2')
         self.assertEqual(self.c.data['target'],22)
+
+    async def test_delayed_old_target_echo_does_not_replace_manual_room_override(self):
+        self.c.mode='Automatik'
+        self.c._recent_radiator_targets=[(20.5,NOW.timestamp()-30),(21.5,NOW.timestamp()-10)]
+        self.assertIsNone(self.c.manual_temperature(self.manual_event(20.5)))
+        self.assertIsNone(self.c.manual_temperature(self.manual_event(21.5)))
+        self.assertEqual(self.c.manual_temperature(self.manual_event(22))['temperature'],22)
+        self.c._recent_radiator_targets=[(20.5,NOW.timestamp()-121)]
+        self.assertEqual(self.c.manual_temperature(self.manual_event(20.5))['temperature'],20.5)
