@@ -1,5 +1,6 @@
-import {overviewHTML,overviewCSS} from './overview.js?v=0.3.9';
-import './heizungsmanager-card.js?v=0.3.9';
+import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.10';
+import {dayStart} from './consumption.js?v=0.3.10';
+import './heizungsmanager-card.js?v=0.3.10';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [
@@ -91,10 +92,25 @@ class HeizungsmanagerPanel extends HTMLElement {
     } catch(err) { this._failed=true; this.shadowRoot.innerHTML=`<div style="padding:24px"><p>Heizungsmanager konnte nicht geladen werden: ${escapeHTML(err.message || err)}</p><button>Erneut laden</button></div>`; this.shadowRoot.querySelector('button').addEventListener('click',()=>{this._failed=false;this.maybeLoad();}); }
     finally { this._loading=false; }
   }
+  async refreshRadiatorHistory(){
+    const rooms=roomOverview(this._hass.states),zone=this._hass.config?.time_zone||'Europe/Berlin';
+    const ids=[...new Set(rooms.filter(r=>r.config.radiators&&r.config.radiator_energy_sensor&&r.config.radiator_energy_period!=='daily').map(r=>r.config.radiator_energy_sensor))].sort();
+    if(!ids.length)return;
+    const start=dayStart(new Date(),zone).toISOString(),key=JSON.stringify([start,ids]);
+    if(this._radiatorLoading||(key===this._radiatorHistoryKey&&Date.now()-(this._radiatorFetched||0)<60000))return;
+    if(key!==this._radiatorHistoryKey)this._radiatorHistory={};
+    this._radiatorHistoryKey=key;this._radiatorFetched=Date.now();this._radiatorLoading=true;
+    try{
+      const data=await this._hass.callWS({type:'history/history_during_period',start_time:start,entity_ids:ids,include_start_time_state:true,significant_changes_only:true,minimal_response:false,no_attributes:false});
+      if(key===this._radiatorHistoryKey)this._radiatorHistory=data;
+    }catch{this._radiatorHistory={};}
+    finally{this._radiatorLoading=false;if(this.isConnected&&this.tab==='home')this.updateOverview();}
+  }
   updateOverview() {
     const content=this.shadowRoot.querySelector('#content');
     if(!content||this.tab!=='home')return;
-    const html=overviewHTML(this._hass.states,this.homeFilter||'all');
+    this.refreshRadiatorHistory();
+    const html=overviewHTML(this._hass.states,this.homeFilter||'all',Date.now(),this._radiatorHistory||{},this._hass.config?.time_zone||'Europe/Berlin');
     if(content.innerHTML===html)return;
     content.innerHTML=html;
     content.querySelectorAll('[data-home-filter]').forEach(button=>button.onclick=()=>{this.homeFilter=button.dataset.homeFilter;this.updateOverview();});

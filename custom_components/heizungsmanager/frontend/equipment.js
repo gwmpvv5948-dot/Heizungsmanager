@@ -1,4 +1,4 @@
-import {powerWatts} from './consumption.js?v=0.3.9';
+import {powerWatts} from './consumption.js?v=0.3.10';
 /* Equipment snapshots; controls are handled by the card. No inferred valve positions. */
 export const modeLabel = value => ({heat:'Heizen',cool:'Kühlen',heat_cool:'Heizen/Kühlen',auto:'Automatik',off:'Aus',fan_only:'Nur Lüfter',dry:'Entfeuchten',sleep:'Schlafen',heating:'Heizt',cooling:'Kühlt',idle:'Bereit',fan:'Lüfter läuft',drying:'Entfeuchtet',defrosting:'Abtauen',auto_fan_low:'Automatisch · niedrig',auto_fan_medium:'Automatisch · mittel',auto_fan_high:'Automatisch · hoch',low:'Niedrig',medium:'Mittel',high:'Hoch',silent:'Leise',turbo:'Turbo'})[value] || (value == null || value === '' ? 'Nicht gemeldet' : String(value));
 export const swingLabel = value => ({off:'Aus',vertical:'Vertikal',horizontal:'Horizontal',both:'Vertikal + horizontal',on:'Ein'})[value] || (value == null || value === '' ? 'Nicht gemeldet' : String(value));

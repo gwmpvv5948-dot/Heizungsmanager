@@ -20,3 +20,25 @@ test('living room comes first without attention, warnings still precede it',()=>
  states.a.attributes.window_open=true;
  assert.equal(roomOverview(states,now)[0].name,'Arbeitszimmer');
 });
+
+test('radiator sums use helper power source and today delta, counting shared meters once',async()=>{
+ const {radiatorTotals}=await import('../custom_components/heizungsmanager/frontend/overview.js');
+ const c={radiators:'climate.a',radiator_energy_sensor:'sensor.e',radiator_energy_period:'total'};
+ const state={state:'12',attributes:{unit_of_measurement:'kWh',source:'sensor.w'}};
+ const states={'sensor.e':state,'sensor.w':{state:'0.8',attributes:{unit_of_measurement:'kW'}}};
+ const history={'sensor.e':[{state:'10',last_updated:'2026-11-05T23:00:00Z',attributes:state.attributes}]};
+ const total=radiatorTotals(states,[{config:c},{config:c}],history,now);
+ assert.deepEqual(total,{watts:800,kwh:2,powerCount:1,energyCount:1,powerSources:1,energySources:1});
+});
+test('missing radiator baseline or unavailable power stays unknown, not zero',async()=>{
+ const {radiatorTotals}=await import('../custom_components/heizungsmanager/frontend/overview.js');
+ const c={radiators:'climate.a',radiator_energy_sensor:'sensor.e',radiator_energy_period:'total'};
+ const result=radiatorTotals({'sensor.e':{state:'12',attributes:{unit_of_measurement:'kWh',source:'sensor.w'}}},[{config:c}],{},now);
+ assert.equal(result.kwh,null);assert.equal(result.watts,null);assert.equal(result.energySources,1);
+});
+test('overview keeps thermal totals separate from electrical totals and filters',()=>{
+ const c={room_name:'Raum',radiators:'climate.a',radiator_energy_sensor:'sensor.e',radiator_energy_period:'daily'};
+ const states={a:room('a',{config:c}),'sensor.e':{state:'1',attributes:{unit_of_measurement:'kWh',source:'sensor.w'}},'sensor.w':{state:'500',attributes:{unit_of_measurement:'W'}}};
+ const h=overviewHTML(states,'attention',now);
+ assert.match(h,/Heizkörper jetzt · Wärme/);assert.match(h,/0,5 kW/);assert.match(h,/Heizkörper heute · Wärme/);assert.match(h,/1 kWh/);assert.match(h,/geschätzt/);
+});

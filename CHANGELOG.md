@@ -1,3 +1,8 @@
+## 0.3.10
+
+- Startseite: Heizkörper jetzt (geschätzte Wärmeleistung in kW) und heute (geschätzte Heizenergie in kWh) als Summe aller Räume. Stromverbrauch bleibt getrennt.
+- Leistung aus der Quelle der konfigurierten berechneten Energiezähler; Tageszuwachs aus HA-Historie. Gemeinsame Quellen nur einmal zählen, fehlende Quellen als unvollständig kennzeichnen.
+
 ## 0.3.9
 
 - Temperaturverlauf für alle Räume einschließlich Schlafzimmer aus der HA-Recorder-Historie der konfigurierten Sensoren rekonstruieren. Letzte 24 Stunden, Aktualisierung alle zehn Minuten; Gewichtung, Korrekturen und Glättung wie bei der Raumtemperatur.
