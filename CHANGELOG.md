@@ -1,3 +1,7 @@
+## 0.3.16
+
+- Raumkacheln zeigen neben Klima ein kleines Tacho-Symbol und die aktuelle elektrische Leistung in Watt.
+
 ## 0.3.15
 
 - Ventilsymbol bei 0 % grau, bei geöffnetem Ventil orange. Der Prozentwert bleibt grau.
