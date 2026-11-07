@@ -64,3 +64,18 @@ class SeparateHouseSettingsTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(meter.status()['configured'])
             self.assertEqual(meter.data['base_kwh'],34759)
             self.assertEqual(meter.data['start'],date.timestamp())
+
+class HouseReadingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_reading_compares_interval_and_rebases(self):
+        from unittest.mock import AsyncMock
+        meter = HouseHeat(N(data={}))
+        meter.store.async_save = AsyncMock()
+        meter.async_refresh = AsyncMock()
+        meter.data = {'base_kwh': 100, 'start': 1, 'rooms': {'room': {'added': 9}}}
+        result = await meter.record_reading(110)
+        self.assertAlmostEqual(result['comparison_percent'], -10)
+        self.assertEqual(result['total_kwh'], 110)
+        self.assertEqual(result['added_kwh'], 0)
+        with self.assertRaises(ValueError):
+            await meter.record_reading(109)
+        self.assertEqual(meter.status()['base_kwh'], 110)

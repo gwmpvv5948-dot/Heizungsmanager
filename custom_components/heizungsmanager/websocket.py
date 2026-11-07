@@ -21,7 +21,7 @@ def payload(hass, coordinator):
         existing = next((item for item in hass.data.get(DOMAIN, {}).values()
                          if hasattr(item, "entry") and item.config.get("room_id", "wohnzimmer") == room_id), None)
         rooms.append({"room_id": room_id, "name": name, "entry_id": existing.entry.entry_id if existing else None})
-    return {"rooms": rooms, "config": coordinator.config, "mode": coordinator.mode, "version": "0.3.16",
+    return {"rooms": rooms, "config": coordinator.config, "mode": coordinator.mode, "version": "0.3.17",
         "plan_entity": registry.async_get_entity_id("sensor", DOMAIN, f"{entry_id}_plan"),
         "mode_entity": registry.async_get_entity_id("select", DOMAIN, f"{entry_id}_mode")}
 
@@ -129,12 +129,23 @@ async def save_config(hass, connection, msg):
     connection.send_result(msg["id"], {"saved": True, "mode": coordinator.mode})
 
 
-@websocket_api.websocket_command({vol.Required("type"): "heizungsmanager/house_heat"})
+@websocket_api.websocket_command({vol.Required("type"): "heizungsmanager/house_heat",
+    vol.Optional("reading_kwh"): vol.Coerce(float)})
 @websocket_api.async_response
 async def house_heat_status(hass, connection, msg):
     if connection.user is None or not connection.user.is_admin:
         connection.send_error(msg['id'],'unauthorized','Administratorrechte erforderlich')
         return
     meter=await get_house_heat(hass)
-    await meter.async_refresh()
-    connection.send_result(msg['id'],meter.status())
+    try:
+        if "reading_kwh" in msg:
+            status = await meter.record_reading(msg["reading_kwh"])
+            from homeassistant.helpers.dispatcher import async_dispatcher_send
+            async_dispatcher_send(hass, f"{DOMAIN}_house_heat_reading")
+        else:
+            await meter.async_refresh()
+            status = meter.status()
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_reading", str(err))
+        return
+    connection.send_result(msg["id"], status)

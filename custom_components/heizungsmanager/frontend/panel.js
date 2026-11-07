@@ -1,7 +1,7 @@
-import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.16';
-import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.16';
-import {dayStart} from './consumption.js?v=0.3.16';
-import './heizungsmanager-card.js?v=0.3.16';
+import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.17';
+import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.17';
+import {dayStart} from './consumption.js?v=0.3.17';
+import './heizungsmanager-card.js?v=0.3.17';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [
@@ -121,13 +121,37 @@ class HeizungsmanagerPanel extends HTMLElement {
     this.refreshHouseHeat();
     const zone=this._hass.config?.time_zone||'Europe/Berlin';
     const meter=houseHeatView(this._houseHeat||{},zone);
-    const html=overviewHTML(this._hass.states,this.homeFilter||'all',Date.now(),this._radiatorHistory||{},zone).replace('<nav class="home-filters"',meter+'<nav class="home-filters"');
+    const html=overviewHTML(this._hass.states,this.homeFilter||'all',Date.now(),this._radiatorHistory||{},zone,meter);
     if(content.innerHTML===html)return;
     content.innerHTML=html;
+    content.querySelector('.meter-read').onclick=()=>this.openMeterReading();
     content.querySelectorAll('[data-home-filter]').forEach(button=>button.onclick=()=>{this.homeFilter=button.dataset.homeFilter;this.updateOverview();});
     content.querySelectorAll('[data-open-room]').forEach(button=>button.onclick=async()=>{
       this.selectedEntry=button.dataset.openRoom;this.tab='plan';this._loaded=false;this._dirty=false;await this.maybeLoad();
     });
+  }
+  openMeterReading() {
+    const dialog=document.createElement('dialog');
+    dialog.className='meter-dialog';
+    dialog.innerHTML=`<form><label>Aktueller Wärmezählerstand in kWh<input name="reading" type="number" min="0" max="1000000000" step="0.001" required></label><small role="alert"></small><div><button type="button">Abbrechen</button> <button type="submit">Ablesung speichern</button></div></form>`;
+    const form=dialog.querySelector('form'), save=form.querySelector('[type=submit]');
+    form.querySelector('[type=button]').onclick=()=>dialog.close();
+    dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+    form.onsubmit=async event=>{
+      event.preventDefault();
+      save.disabled=true;
+      try{
+        this._houseHeat=await this._hass.callWS({type:'heizungsmanager/house_heat',reading_kwh:form.elements.reading.valueAsNumber});
+        this._houseHeatFetched=Date.now();
+        dialog.close();
+        this.updateOverview();
+      }catch(error){
+        form.querySelector('[role=alert]').textContent=error?.message||'Ablesung konnte nicht gespeichert werden';
+        save.disabled=false;
+      }
+    };
+    this.shadowRoot.append(dialog);
+    dialog.showModal();
   }
   field(field) {
     const value=this.draft[field.key] ?? '';

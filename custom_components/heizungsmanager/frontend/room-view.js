@@ -1,4 +1,4 @@
-import {modeLabel,swingLabel} from './equipment.js?v=0.3.16';
+import {modeLabel,swingLabel} from './equipment.js?v=0.3.17';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const n=v=>Number.isFinite(v)?v.toLocaleString('de-DE',{maximumFractionDigits:1}):'—';
 const deg=v=>`${n(v)}°`;

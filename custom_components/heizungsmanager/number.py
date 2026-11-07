@@ -2,6 +2,8 @@
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.const import EntityCategory
 from homeassistant.exceptions import ServiceValidationError
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from .const import DOMAIN
 from .house_heat import get_house_heat
 
 
@@ -26,6 +28,11 @@ class HouseHeatBase(NumberEntity):
 
     def __init__(self,meter):
         self.meter=meter
+
+    async def async_added_to_hass(self):
+        await super().async_added_to_hass()
+        self.async_on_remove(async_dispatcher_connect(
+            self.hass, f"{DOMAIN}_house_heat_reading", self.async_write_ha_state))
 
     @property
     def native_value(self):

@@ -1,3 +1,7 @@
+## 0.3.17
+
+- Wärmezähler als Fußzeile unter Heizwärme, mit neuer Ablesung und Abgleich der Schätzung. Stromdiagramm mit Grundlinie und gleichmäßiger Achsenbeschriftung.
+
 ## 0.3.16
 
 - Raumkacheln zeigen neben Klima ein kleines Tacho-Symbol mit beweglicher Nadel von 0 bis 1.500 W und den aktuellen Wattwert.

@@ -69,6 +69,30 @@ class HouseHeat:
             await self.store.async_save(self.data)
         await self.async_refresh()
 
+    async def record_reading(self, value):
+        if not math.isfinite(value) or not 0 <= value <= 1e9:
+            raise ValueError('Zählerstand muss zwischen 0 und 1.000.000.000 kWh liegen')
+        await self.async_refresh(force=True)
+        async with self.lock:
+            previous = self.status()
+            base = previous['base_kwh']
+            if base is not None and value < base:
+                raise ValueError('Die Ablesung liegt unter dem bisherigen Startwert')
+            measured = value - base if base is not None else 0
+            comparison = None
+            if measured > 0 and previous['configured'] and not previous['incomplete']:
+                comparison = 100 * (previous['added_kwh'] / measured - 1)
+            reading = {
+                'base_kwh': value, 'start': datetime.now(timezone.utc).timestamp(),
+                'rooms': {}, 'comparison_percent': comparison,
+            }
+            await self.store.async_save(reading)
+            self.data = reading
+            self.attempted = None
+            self.error = None
+        await self.async_refresh()
+        return self.status()
+
     async def set_base(self,value):
         if type(value) not in (int,float) or not math.isfinite(value) or not 0<=value<=1e9:
             raise ValueError('Startwert in kWh muss zwischen 0 und 1.000.000.000 liegen')
@@ -90,11 +114,11 @@ class HouseHeat:
             await self.store.async_save(self.data)
         await self.async_refresh()
 
-    async def async_refresh(self,_event=None):
+    async def async_refresh(self,_event=None,*,force=False):
         if self.lock.locked() or (self.data.get('start') is None or self.data.get('base_kwh') is None):
             return
         now=datetime.now(timezone.utc).timestamp()
-        if self.attempted is not None and now-self.attempted<60:
+        if not force and self.attempted is not None and now-self.attempted<60:
             return
         async with self.lock:
             self.attempted=now
@@ -135,7 +159,7 @@ class HouseHeat:
         rooms=self.data.get('rooms',{})
         added=sum(r.get('added',0) for r in rooms.values())
         return {'configured':configured,'base_kwh':self.data.get('base_kwh'),'start':self.data.get('start'),
-            'added_kwh':added,'total_kwh':self.data['base_kwh']+added if configured else None,
+            'comparison_percent':self.data.get('comparison_percent'), 'added_kwh':added,'total_kwh':self.data['base_kwh']+added if configured else None,
             'updated':self.data.get('updated'),'incomplete':configured and (not rooms or any(r.get('partial') for r in rooms.values()) or self.error is not None),
             'note':self.error or ('Historie teilweise unvollständig' if any(r.get('partial') for r in rooms.values()) else None)}
 
