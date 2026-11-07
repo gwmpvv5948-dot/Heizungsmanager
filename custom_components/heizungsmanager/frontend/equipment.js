@@ -1,4 +1,5 @@
-import {powerWatts} from './consumption.js?v=0.3.18';
+import {wallHeaterSwitch,wallHeaterPowerId} from './energy-overview.js?v=0.3.19';
+import {powerWatts} from './consumption.js?v=0.3.19';
 /* Equipment snapshots; controls are handled by the card. No inferred valve positions. */
 export const modeLabel = value => ({heat:'Heizen',cool:'Kühlen',heat_cool:'Heizen/Kühlen',auto:'Automatik',off:'Aus',fan_only:'Nur Lüfter',dry:'Entfeuchten',sleep:'Schlafen',heating:'Heizt',cooling:'Kühlt',idle:'Bereit',fan:'Lüfter läuft',drying:'Entfeuchtet',defrosting:'Abtauen',auto_fan_low:'Automatisch · niedrig',auto_fan_medium:'Automatisch · mittel',auto_fan_high:'Automatisch · hoch',low:'Niedrig',medium:'Mittel',high:'Hoch',silent:'Leise',turbo:'Turbo'})[value] || (value == null || value === '' ? 'Nicht gemeldet' : String(value));
 export const swingLabel = value => ({off:'Aus',vertical:'Vertikal',horizontal:'Horizontal',both:'Vertikal + horizontal',on:'Ein'})[value] || (value == null || value === '' ? 'Nicht gemeldet' : String(value));
@@ -38,6 +39,14 @@ export function equipmentStatus(states, config) {
     const swing=attribute(device,'swing_mode') ?? (available(device)?attribute(controller,'swing_mode'):null);
     const swingModes=available(device) && Array.isArray(device.attributes?.swing_modes)?[...new Set(device.attributes.swing_modes.filter(value=>typeof value==='string' && value))]:[];
     tiles.push({kind:'heat_pump',id,swingModes,swingValue:swing,swing:swingLabel(swing),fanEntity:id,fanModes,fanValue:fan,watts:powerWatts(states[config.power_sensor]),name:'Midea · Klimaanlage',...status(device),controllerMode:available(controller)?modeLabel(controller.state):'Nicht verfügbar',fan:modeLabel(fan)});
+  }
+  const wall=states[wallHeaterSwitch];
+  if((config.room_id??'wohnzimmer')==='wohnzimmer'&&wall){
+    const valid=available(wall)&&!wall.attributes?.restored;
+    const power=states[wallHeaterPowerId(config)];
+    tiles.push({kind:'wall_heater',id:wallHeaterSwitch,name:'Wandheizung',
+      mode:valid?(wall.state==='on'?'Ein':'Aus'):'Nicht verfügbar',
+      watts:power?.attributes?.restored?null:powerWatts(power)});
   }
   return tiles;
 }

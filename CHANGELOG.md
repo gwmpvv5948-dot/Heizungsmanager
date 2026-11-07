@@ -1,3 +1,7 @@
+## 0.3.19
+
+- Wandheizung mit Schaltzustand und gemessener Leistung in der Wohnzimmer-Kachel und unter Geräte.
+
 ## 0.3.18
 
 - Wohnzimmer-Wandheizung bei bestätigtem PV-Überschuss mit 30 Minuten Mindestlaufzeit. Stromübersicht nutzt sensor.wandheizung_power und dessen Verlauf, optional einen separaten Tageszähler.
