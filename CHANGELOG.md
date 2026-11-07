@@ -1,3 +1,7 @@
+## 0.3.14
+
+- Raumkacheln zeigen den Öffnungsgrad der Heizkörper als orangefarbene Kreise mit Prozentwert.
+
 ## 0.3.13
 
 - Haus-Wärmezähler ausschließlich über zwei Konfigurationsentitäten in der Heizungsmanager-Integration einrichten: Startwert (kWh) und Ablesezeitpunkt. Dashboard zeigt nur den fortgeschriebenen Schätzwert.
