@@ -1,6 +1,6 @@
 ## 0.3.16
 
-- Raumkacheln zeigen neben Klima ein kleines Tacho-Symbol und die aktuelle elektrische Leistung in Watt.
+- Raumkacheln zeigen neben Klima ein kleines Tacho-Symbol mit beweglicher Nadel von 0 bis 1.500 W und den aktuellen Wattwert.
 
 ## 0.3.15
 
