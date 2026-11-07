@@ -1,3 +1,7 @@
+## 0.3.15
+
+- Ventilsymbol bei 0 % grau, bei geöffnetem Ventil orange. Der Prozentwert bleibt grau.
+
 ## 0.3.14
 
 - Raumkacheln zeigen den Öffnungsgrad der Heizkörper als orangefarbene Kreise mit Prozentwert.

@@ -1,6 +1,6 @@
-import {roomView,deviceControls,roomCSS} from './room-view.js?v=0.3.14';
-import {consumptionRows,dayStart} from './consumption.js?v=0.3.14';
-import {equipmentStatus,modeLabel,swingLabel} from './equipment.js?v=0.3.14';
+import {roomView,deviceControls,roomCSS} from './room-view.js?v=0.3.15';
+import {consumptionRows,dayStart} from './consumption.js?v=0.3.15';
+import {equipmentStatus,modeLabel,swingLabel} from './equipment.js?v=0.3.15';
 /* Local Lovelace card. No CDN, remote fonts or remote scripts. */
 const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const clock = value => new Date(value).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});

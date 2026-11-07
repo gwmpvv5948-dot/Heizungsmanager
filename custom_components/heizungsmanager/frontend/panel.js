@@ -1,7 +1,7 @@
-import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.14';
-import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.14';
-import {dayStart} from './consumption.js?v=0.3.14';
-import './heizungsmanager-card.js?v=0.3.14';
+import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.15';
+import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.15';
+import {dayStart} from './consumption.js?v=0.3.15';
+import './heizungsmanager-card.js?v=0.3.15';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [
