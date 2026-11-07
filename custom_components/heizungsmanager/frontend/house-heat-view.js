@@ -7,7 +7,7 @@ export function houseHeatView(status={},zone='Europe/Berlin'){
  const rounded=Number.isFinite(difference)?Math.round(Math.abs(difference)*10)/10:null;
  const comparison=rounded===null?'':rounded===0?'Schätzung und Ablesung stimmen überein':`Schätzung lag ${number(rounded,1)} % zu ${difference<0?'niedrig':'hoch'}`;
  return `<section class="house-heat-meter" aria-label="Geschätzter Haus-Wärmezähler"><div><small>Wärmezähler Haus · geschätzt</small>
- ${status.configured?`<strong>${number(status.total_kwh,0)} kWh</strong> <small>· +${number(status.added_kwh,1)} kWh seit Ablesung ${esc(date)}</small>`:'<small>Erste Ablesung erfassen</small>'}
+ ${status.configured?`<strong>${status.total_kwh.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})} kWh</strong> <small>· +${number(status.added_kwh,1)} kWh seit Ablesung ${esc(date)}</small>`:'<small>Erste Ablesung erfassen</small>'}
  ${comparison?`<small class="meter-message">${comparison}</small>`:''}
  ${status.incomplete?`<small class="meter-message meter-warning">${esc(status.note||'Fortschreibung unvollständig · Messdaten fehlen')}</small>`:''}</div>
  <button type="button" class="meter-read">Ablesen</button></section>`;

@@ -1,6 +1,6 @@
-import {roomView,deviceControls,roomCSS} from './room-view.js?v=0.3.19';
-import {consumptionRows,dayStart} from './consumption.js?v=0.3.19';
-import {equipmentStatus,modeLabel,swingLabel} from './equipment.js?v=0.3.19';
+import {roomView,deviceControls,roomCSS} from './room-view.js?v=0.3.20';
+import {consumptionRows,dayStart} from './consumption.js?v=0.3.20';
+import {equipmentStatus,modeLabel,swingLabel} from './equipment.js?v=0.3.20';
 /* Local Lovelace card. No CDN, remote fonts or remote scripts. */
 const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const clock = value => new Date(value).toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
@@ -47,7 +47,7 @@ class HeizungsmanagerCard extends HTMLElement {
     const energy=consumptionRows(this._hass.states,cfg,this._energyHistory,new Date(),zone);
     const temperature=this.quickDraft??a.override?.temperature??a.target??21,duration=this.quickDuration??'2h';
     const opened=[...this.shadowRoot.querySelectorAll('details[open]')].map(d=>d.querySelector('summary')?.textContent);
-    this.shadowRoot.innerHTML=this.config.controlsOnly?`<style>${roomCSS}</style>${deviceControls(equipment,this._equipmentPending,this._equipmentMessages)}`:roomView({a,cfg,equipment,energy,temperature,duration,message:this.quickMessage,zone,modeEntity:this.config.mode_entity,narrow:window.matchMedia('(max-width:650px)').matches});
+    this.shadowRoot.innerHTML=this.config.controlsOnly?`<style>${roomCSS}</style>${deviceControls(equipment,this._equipmentPending,this._equipmentMessages)}`:roomView({a,cfg,equipment,energy,climateControls:(cfg.room_id??'wohnzimmer')==='wohnzimmer'?deviceControls(equipment,this._equipmentPending,this._equipmentMessages):'',temperature,duration,message:this.quickMessage,zone,modeEntity:this.config.mode_entity,narrow:window.matchMedia('(max-width:650px)').matches});
     this.shadowRoot.querySelectorAll('details').forEach(d=>{d.open=opened.includes(d.querySelector('summary')?.textContent);});
     this.shadowRoot.querySelectorAll('[data-duration]').forEach(button=>button.onclick=()=>{
       this.quickDuration=button.dataset.duration;

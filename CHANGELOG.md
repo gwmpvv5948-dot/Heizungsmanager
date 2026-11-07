@@ -1,3 +1,7 @@
+## 0.3.20
+
+- Haus-Wärmezähler mit zwei Nachkommastellen. Lüftermodus und Oszillation direkt im Wohnzimmer-Heizplan einstellbar.
+
 ## 0.3.19
 
 - Wandheizung mit Schaltzustand und gemessener Leistung in der Wohnzimmer-Kachel und unter Geräte.
