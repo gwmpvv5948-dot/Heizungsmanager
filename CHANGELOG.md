@@ -1,3 +1,7 @@
+## 0.3.18
+
+- Wohnzimmer-Wandheizung bei bestätigtem PV-Überschuss mit 30 Minuten Mindestlaufzeit. Stromübersicht nutzt sensor.wandheizung_power und dessen Verlauf, optional einen separaten Tageszähler.
+
 ## 0.3.17
 
 - Wärmezähler als Fußzeile unter Heizwärme, mit neuer Ablesung und Abgleich der Schätzung. Stromdiagramm mit Grundlinie und gleichmäßiger Achsenbeschriftung.

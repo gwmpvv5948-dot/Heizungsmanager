@@ -25,6 +25,10 @@ def schema(values):
             selector.EntitySelectorConfig(domain=domain))
     fields[vol.Optional("power_sensor", description={"suggested_value": values.get("power_sensor", "")})] = selector.EntitySelector(
         selector.EntitySelectorConfig(domain="sensor", device_class="power"))
+    if values["room_id"] == "wohnzimmer":
+        for key, device_class in (("wall_heater_power_sensor", "power"), ("wall_heater_daily_energy_sensor", "energy")):
+            fields[vol.Optional(key, description={"suggested_value": values.get(key, "")})] = selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="sensor", device_class=device_class))
     fields[vol.Optional("secondary_temperature_sensor", description={"suggested_value": values.get("secondary_temperature_sensor", "")})] = selector.EntitySelector(
         selector.EntitySelectorConfig(domain="sensor", device_class="temperature"))
     for key in ("pump_daily_energy_sensor", "radiator_energy_sensor"):

@@ -1,7 +1,8 @@
-import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.17';
-import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.17';
-import {dayStart} from './consumption.js?v=0.3.17';
-import './heizungsmanager-card.js?v=0.3.17';
+import {wallHeaterSwitch,wallHeaterPowerId} from './energy-overview.js?v=0.3.18';
+import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.18';
+import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.18';
+import {dayStart} from './consumption.js?v=0.3.18';
+import './heizungsmanager-card.js?v=0.3.18';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [
@@ -13,6 +14,8 @@ const SETTINGS = [
     {key:'power_sensor',label:'Midea-Leistung (optional)',domain:'sensor',deviceClass:'power',optional:true,hint:'Gemessene elektrische Leistung in W oder kW. Kein geschätzter VTherm-Energiezähler.'}
   ]},
   {title:'Verbrauchsanzeige',description:'Vergleich für heute seit 00:00. Midea-Strommessung und VTherm-Heizenergie-Schätzung werden getrennt gekennzeichnet und nicht addiert. Keine Wirkungsgrad- oder Kostenberechnung.',fields:[
+    {key:'wall_heater_power_sensor',label:'Wandheizung · Leistung',domain:'sensor',deviceClass:'power',optional:true,hint:'Ohne Sensor wird mit 400 W während der Einschaltzeit gerechnet.'},
+    {key:'wall_heater_daily_energy_sensor',label:'Wandheizung · Energie heute',domain:'sensor',deviceClass:'energy',optional:true,hint:'Optionaler Tageszähler für den gemessenen Stromverbrauch.'},
     {key:'pump_daily_energy_sensor',label:'Midea · Energie heute (optional)',domain:'sensor',deviceClass:'energy',optional:true,hint:'Tageszähler in kWh, z. B. tasmota_energy_today_2. Der Leistungssensor in W bleibt für die aktuelle Leistung zuständig.'},
     {key:'radiator_energy_sensor',label:'Heizkörper · Energiezähler (optional)',domain:'sensor',deviceClass:'energy',optional:true},
     {key:'radiator_energy_period',label:'Art des Heizkörper-Zählers',options:[['daily','Tageszähler · Rücksetzung um Mitternacht'],['total','Fortlaufender Zähler · Tagesverbrauch aus HA-Historie']]}
@@ -95,7 +98,7 @@ class HeizungsmanagerPanel extends HTMLElement {
   }
   async refreshRadiatorHistory(){
     const rooms=roomOverview(this._hass.states),zone=this._hass.config?.time_zone||'Europe/Berlin';
-    const ids=[...new Set(rooms.flatMap(r=>[r.config.radiators?r.config.radiator_energy_sensor:null,r.config.pump_daily_energy_sensor]).filter(Boolean))].sort();
+    const ids=[...new Set([...rooms.flatMap(r=>[r.config.radiators?r.config.radiator_energy_sensor:null,r.config.pump_daily_energy_sensor,r.config.wall_heater_daily_energy_sensor,r.roomId==="wohnzimmer"&&this._hass.states[wallHeaterPowerId(r.config)]?wallHeaterPowerId(r.config):null]),this._hass.states[wallHeaterSwitch]?wallHeaterSwitch:null].filter(Boolean))].sort();
     if(!ids.length)return;
     const start=dayStart(new Date(),zone).toISOString(),key=JSON.stringify([start,ids]);
     if(this._radiatorLoading||(key===this._radiatorHistoryKey&&Date.now()-(this._radiatorFetched||0)<60000))return;
@@ -154,7 +157,8 @@ class HeizungsmanagerPanel extends HTMLElement {
     dialog.showModal();
   }
   field(field) {
-    const value=this.draft[field.key] ?? '';
+    if(field.key.startsWith("wall_heater_")&&this.draft.room_id!=="wohnzimmer")return "";
+    const value=this.draft[field.key] ?? (field.key==="wall_heater_power_sensor"&&this._hass.states[wallHeaterPowerId(this.draft)]?wallHeaterPowerId(this.draft):"");
     let input;
     if(field.domain) {
       const entities=Object.entries(this._hass.states).filter(([id,s])=>id.startsWith(field.domain+'.') && (!field.deviceClass || s.attributes.device_class===field.deviceClass || id===value) && (!['temperature_sensor','secondary_temperature_sensor'].includes(field.key) || !s.attributes.heizungsmanager_room_temperature));

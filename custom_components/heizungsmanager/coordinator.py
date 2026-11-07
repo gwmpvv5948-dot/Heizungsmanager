@@ -14,6 +14,7 @@ from .const import DEFAULTS, DOMAIN
 from .model import ThermalModel, finite, make_plan, next_schedule_time, next_night_time, normalize_config
 from .temperature import RoomTemperature
 from .temperature_history import temperature_history
+from .wall_heater import ENTITY_ID as WALL_HEATER_ENTITY, WallHeater
 from .pv import PVPreference, strommanager_surplus
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
         self._pump_heat_commanded = False
         self.override = None
         self.pv_preference = PVPreference()
+        self.wall_heater = WallHeater()
         self._startup_pending = False
         self._startup_ready_since = None
         self._stopping = False
@@ -522,7 +524,9 @@ class HeatingCoordinator(DataUpdateCoordinator):
             self.detect_manual(now)
         if self.manual_until and self.manual_until <= now:
             self.manual_until = None
-        learn_ok = not startup_blocked and temp is not None and not temperature_info["learning_paused"] and outside is not None and not window_open and not window_unknown and healthy_devices and self.manual_until is None and p is not None and r is not None
+        wall = self.hass.states.get(WALL_HEATER_ENTITY) if self.config.get("room_id", "wohnzimmer") == "wohnzimmer" else None
+        wall_idle = not wall or (wall.state == "off" and (now-wall.last_changed).total_seconds() >= 300)
+        learn_ok = wall_idle and not startup_blocked and temp is not None and not temperature_info["learning_paused"] and outside is not None and not window_open and not window_unknown and healthy_devices and self.manual_until is None and p is not None and r is not None
         if learn_ok:
             if self.previous:
                 before = self.previous
@@ -576,6 +580,20 @@ class HeatingCoordinator(DataUpdateCoordinator):
             except Exception as err:
                 self.error = str(err)
                 _LOGGER.warning("Heizungsmanager: %s", err)
+        if self.config.get("room_id", "wohnzimmer") == "wohnzimmer":
+            safety_stop = self.mode == "Aus" or temp is None or window_unknown or window_pause
+            safety_stop = safety_stop or bool(row and temp is not None and temp >= row["target"] + 1)
+            if not startup_blocked:
+                try:
+                    await self.wall_heater.update(
+                        self.hass, now.timestamp(), strommanager_surplus(self.hass, now.timestamp(), None),
+                        bool(row and temp is not None and temp < row["target"] and not window_open),
+                        safety_stop and self.mode in ("Automatik", "Aus"),
+                        self.mode == "Automatik" and self.manual_until is None,
+                    )
+                except Exception as err:
+                    self.error = str(err)
+                    _LOGGER.warning("Heizungsmanager Wandheizung: %s", err)
         if not self.history or now.timestamp() - self.history[-1]["timestamp"] >= 600:
             self.history.append({"timestamp": now.timestamp(), "time": now.isoformat(), "temperature": temp,
                 "pump_active": p, "radiator_demand": r, "mode": self.mode, "phase": status})
