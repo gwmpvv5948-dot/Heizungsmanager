@@ -1,3 +1,7 @@
+## 0.3.24
+
+- Raumübersicht zeigt den Status „Hält“ in einem sanften Orangeton.
+
 ## 0.3.23
 
 - Manuelle Heizpause zeigt die betroffene Entität und die Abweichung beim Modus oder Sollwert. Der Auslöser erscheint auch im Home-Assistant-Protokoll.

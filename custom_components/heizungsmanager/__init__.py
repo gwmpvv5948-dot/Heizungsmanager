@@ -20,7 +20,7 @@ async def async_setup_entry(hass, entry):
         await hass.http.async_register_static_paths([StaticPathConfig(
             "/heizungsmanager-static",
             str(Path(__file__).parent / "frontend"), False)])
-        frontend.add_extra_js_url(hass, "/heizungsmanager-static/sidebar-icon.js?v=0.3.23")
+        frontend.add_extra_js_url(hass, "/heizungsmanager-static/sidebar-icon.js?v=0.3.24")
         domain_data["static_registered"] = True
         async_register_api(hass)
     coordinator = HeatingCoordinator(hass, entry)
@@ -36,7 +36,7 @@ async def async_setup_entry(hass, entry):
     if not domain_data.get("panel_registered"):
         await async_register_panel(hass, frontend_url_path="heizungsmanager",
             webcomponent_name="heizungsmanager-panel", sidebar_title="Heizungsmanager",
-            sidebar_icon="heizungsmanager:heating", module_url="/heizungsmanager-static/panel.js?v=0.3.23",
+            sidebar_icon="heizungsmanager:heating", module_url="/heizungsmanager-static/panel.js?v=0.3.24",
             config={"entry_id": entry.entry_id}, require_admin=True)
         domain_data["panel_registered"] = True
     entry.async_on_unload(entry.add_update_listener(async_options_updated))
@@ -61,7 +61,7 @@ async def async_unload_entry(hass, entry):
         if remaining:
             await async_register_panel(hass, frontend_url_path="heizungsmanager",
                 webcomponent_name="heizungsmanager-panel", sidebar_title="Heizungsmanager",
-                sidebar_icon="heizungsmanager:heating", module_url="/heizungsmanager-static/panel.js?v=0.3.23",
+                sidebar_icon="heizungsmanager:heating", module_url="/heizungsmanager-static/panel.js?v=0.3.24",
                 config={"entry_id": remaining[0].entry.entry_id}, require_admin=True)
             hass.data[DOMAIN]["panel_registered"] = True
         return True
