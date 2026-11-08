@@ -1,8 +1,8 @@
-import {wallHeaterSwitch,wallHeaterPowerId} from './energy-overview.js?v=0.3.20';
-import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.20';
-import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.20';
-import {dayStart} from './consumption.js?v=0.3.20';
-import './heizungsmanager-card.js?v=0.3.20';
+import {wallHeaterSwitch,wallHeaterPowerId} from './energy-overview.js?v=0.3.21';
+import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.21';
+import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.21';
+import {dayStart} from './consumption.js?v=0.3.21';
+import './heizungsmanager-card.js?v=0.3.21';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [
@@ -38,8 +38,8 @@ const SETTINGS = [
   {title:'Wärmepumpe · Haltebetrieb und PV-Vorrang',description:'Temperaturhalten lässt die Wärmepumpe beim erreichten Raumziel im Heizmodus. PV priorisiert sie gegenüber Heizkörpern; fehlende PV schaltet sie nicht aus. Tür, Aus, ungültige Sensoren und Übertemperatur haben Vorrang. PV-Werte kommen optional lokal vom Strommanager, ohne zusätzliche Cloud-Verbindung.',fields:[
     {key:'pump_regulation',label:'Wärmepumpen-Regelung',options:[['hold','Temperatur halten · empfohlen'],['hysteresis','Ein/Aus nach Raumtemperatur']]},
     {key:'pv_preference_mode',label:'PV-Vorrang',options:[['auto','Automatisch über Strommanager'],['off','Aus']]},
-    {key:'pv_on_w',label:'PV-Vorrang ab Überschuss (W)',type:'number',min:100,max:10000,step:100},
-    {key:'pv_off_w',label:'PV-Vorrang unter Überschuss (W)',type:'number',min:0,max:9900,step:100},
+    {key:'pv_on_w',label:'PV-Vorrang über PV-Erzeugung (W)',type:'number',min:100,max:10000,step:100},
+    {key:'pv_off_w',label:'PV-Vorrang unter PV-Erzeugung (W)',type:'number',min:0,max:9900,step:100},
     {key:'pv_confirm_minutes',label:'Überschuss/Mangel bestätigen (Minuten)',type:'number',min:1,max:30,step:1,hint:'PV wird über drei Minuten geglättet. Änderungen gelten erst nach dieser Bestätigungszeit.'},
     {key:'pv_hold_minutes',label:'PV-Vorrang mindestens halten (Minuten)',type:'number',min:5,max:120,step:5},
     {key:'pv_aux_gap',label:'Heizkörper ergänzen ab Temperaturdefizit (°C)',type:'number',min:.5,max:3,step:.5,hint:'Bei größerem Defizit helfen die Heizkörper trotz PV-Vorrang. Gilt nur für Phasen mit beiden Wärmequellen.'}

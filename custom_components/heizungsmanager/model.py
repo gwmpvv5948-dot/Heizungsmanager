@@ -89,8 +89,10 @@ ROOMS = {"wohnzimmer": "Wohnzimmer", "arbeitszimmer": "Arbeitszimmer", "alwin": 
 def normalize_config(config):
     """Migrate the old two-temperature plan without changing its saved inputs."""
     result = dict(config)
-    for key,value in {"pump_regulation":"hold","pv_preference_mode":"auto","pv_on_w":1000,"pv_off_w":500,"pv_confirm_minutes":5,"pv_hold_minutes":20,"pv_aux_gap":1.0}.items():
+    for key,value in {"pump_regulation":"hold","pv_preference_mode":"auto","pv_on_w":300,"pv_off_w":200,"pv_confirm_minutes":5,"pv_hold_minutes":20,"pv_aux_gap":1.0}.items():
         result.setdefault(key,value)
+    if (result["pv_on_w"], result["pv_off_w"]) == (1000, 500):
+        result.update(pv_on_w=300, pv_off_w=200)
     room = result.setdefault("room_id", "wohnzimmer")
     result["room_name"] = ROOMS.get(room, room)
     result.setdefault("heating_hysteresis", config.get("night_reheat_hysteresis", 0.3))
@@ -224,6 +226,8 @@ def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_act
         hysteresis = config["heating_hysteresis"]
         holding = config["pump_regulation"] == "hold"
         pv = bool(pv_status and pv_status.get("preferred") and stamp<=pv_status.get("valid_until",0))
+        if pv and sources == "radiators" and config.get("heat_pump"):
+            sources = "both"
         pump_offset = config.get("pump_temperature_offset", 0.5) if config.get("heat_pump") and not holding else 0.0
         control_target = target + pump_offset
         if holding:

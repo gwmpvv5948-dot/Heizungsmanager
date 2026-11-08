@@ -25,7 +25,7 @@ class PVPreference:
         else:
             self.filtered+=(1-math.exp(-gap/180))*(max(0,surplus)-self.filtered)
         self.last=now
-        want=self.filtered >= config.get('pv_off_w',500) if self.preferred else self.filtered >= config.get('pv_on_w',1000)
+        want=self.filtered >= config.get('pv_off_w',200) if self.preferred else self.filtered > config.get('pv_on_w',300)
         if want==self.preferred:self.candidate_since=None
         else:
             self.candidate_since=now if self.candidate_since is None else self.candidate_since
@@ -34,16 +34,23 @@ class PVPreference:
             if confirmed and held:
                 self.preferred=want;self.since=now;self.candidate_since=None
         return {'available':True,'preferred':self.preferred,'surplus_w':round(surplus),'filtered_w':round(self.filtered),
-                'valid_until':now+300,'reason':'PV-Vorrang · Wärmepumpe bevorzugt' if self.preferred else 'PV-Vorrang wartet auf bestätigten Überschuss'}
+                'valid_until':now+300,'reason':'PV-Vorrang · Wärmepumpe bevorzugt' if self.preferred else 'PV-Vorrang wartet auf bestätigte PV-Erzeugung'}
 
 
-def strommanager_surplus(hass, now, pump_w):
+def strommanager_snapshot(hass, now):
     controllers=getattr(hass,'data',{}).get('solar_pilot',{}).get('controllers',{})
     sources=[c for c in controllers.values() if getattr(c,'snapshot',None) is not None]
     if len(sources)!=1:return None
     s=sources[0].snapshot;c=sources[0].settings
     if (not all(number(v) for v in (s.now,s.meter_age,s.grid_export_w,s.battery_charge_w,s.pv_w))
             or not 0<=now-s.now<=120 or not 0<=s.meter_age+now-s.now<=c.meter_max_age_s or s.pv_w<0):return None
+    return s
+
+
+def strommanager_surplus(hass, now, pump_w):
+    s = strommanager_snapshot(hass, now)
+    if s is None:
+        return None
     # Remove house-battery discharge from apparent PV surplus. Add the heat
     # pump's measured own load back, otherwise starting it removes its permission.
     return max(0,s.grid_export_w+min(0,s.battery_charge_w)+(pump_w if number(pump_w) else 0))

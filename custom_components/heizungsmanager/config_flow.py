@@ -60,7 +60,7 @@ def schema(values):
 
 
 def validate(data):
-    if data.get("pv_off_w",500)>=data.get("pv_on_w",1000):return "pv_thresholds"
+    if data.get("pv_off_w",200)>=data.get("pv_on_w",300):return "pv_thresholds"
     if data.get("temperature_sensor") == data.get("secondary_temperature_sensor"):
         return "same_sensor"
     if any((data.get(key, "").startswith("sensor.heizungsmanager_") and data.get(key, "").endswith("_raumtemperatur")) for key in ("temperature_sensor", "secondary_temperature_sensor")):

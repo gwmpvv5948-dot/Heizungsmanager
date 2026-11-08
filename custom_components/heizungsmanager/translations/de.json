@@ -55,8 +55,8 @@
           "pump_temperature_offset": "Midea: Geräte-Sollwert-Offset (°C)",
           "pump_regulation": "Wärmepumpe · Regelung",
           "pv_preference_mode": "PV-Vorrang",
-          "pv_on_w": "PV-Vorrang ab (W)",
-          "pv_off_w": "PV-Vorrang unter (W)",
+          "pv_on_w": "PV-Vorrang über PV-Erzeugung (W)",
+          "pv_off_w": "PV-Vorrang unter PV-Erzeugung (W)",
           "pv_confirm_minutes": "PV-Bestätigungszeit (Minuten)",
           "pv_hold_minutes": "PV-Mindesthaltezeit (Minuten)",
           "pv_aux_gap": "Heizkörper ergänzen ab Temperaturdefizit (°C)"
@@ -149,8 +149,8 @@
           "pump_temperature_offset": "Midea: Geräte-Sollwert-Offset (°C)",
           "pump_regulation": "Wärmepumpe · Regelung",
           "pv_preference_mode": "PV-Vorrang",
-          "pv_on_w": "PV-Vorrang ab (W)",
-          "pv_off_w": "PV-Vorrang unter (W)",
+          "pv_on_w": "PV-Vorrang über PV-Erzeugung (W)",
+          "pv_off_w": "PV-Vorrang unter PV-Erzeugung (W)",
           "pv_confirm_minutes": "PV-Bestätigungszeit (Minuten)",
           "pv_hold_minutes": "PV-Mindesthaltezeit (Minuten)",
           "pv_aux_gap": "Heizkörper ergänzen ab Temperaturdefizit (°C)"

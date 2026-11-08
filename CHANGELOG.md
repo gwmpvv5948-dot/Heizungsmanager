@@ -1,3 +1,7 @@
+## 0.3.21
+
+- PV-Vorrang für Midea anhand der PV-Erzeugung. Standardmäßig aktiv über 300 W, auch in Heizkörperphasen mit Wärmebedarf.
+
 ## 0.3.20
 
 - Haus-Wärmezähler mit zwei Nachkommastellen. Lüftermodus und Oszillation direkt im Wohnzimmer-Heizplan einstellbar.

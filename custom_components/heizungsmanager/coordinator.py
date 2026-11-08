@@ -15,7 +15,7 @@ from .model import ThermalModel, finite, make_plan, next_schedule_time, next_nig
 from .temperature import RoomTemperature
 from .temperature_history import temperature_history
 from .wall_heater import ENTITY_ID as WALL_HEATER_ENTITY, WallHeater
-from .pv import PVPreference, strommanager_surplus
+from .pv import PVPreference, strommanager_snapshot, strommanager_surplus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -541,10 +541,9 @@ class HeatingCoordinator(DataUpdateCoordinator):
         else:
             self.previous = None
         forecast = self.forecast if self.forecast_updated and now.timestamp() - self.forecast_updated < 7200 else []
-        power_state=self.state("power_sensor")
-        pump_w=finite(power_state.state,0,30000) if power_state and self.fresh(power_state,now,5) and power_state.attributes.get("unit_of_measurement") in ("W","kW") else None
-        if pump_w is not None and power_state.attributes.get("unit_of_measurement")=="kW":pump_w*=1000
-        pv_status=self.pv_preference.update(now.timestamp(),strommanager_surplus(self.hass,now.timestamp(),pump_w),self.config)
+        solar = strommanager_snapshot(self.hass, now.timestamp())
+        pv_status = self.pv_preference.update(
+            now.timestamp(), solar.pv_w if solar is not None else None, self.config)
         pump_state = self.state("heat_pump")
         pump_on = bool(pump_state and pump_state.state == "heat")
         # last_changed tracks the HVAC mode, not changing temperature/power attributes.

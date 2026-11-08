@@ -3,7 +3,7 @@ DOMAIN = "heizungsmanager"
 DEFAULTS = {
     "pump_regulation": "hold",
     "pv_preference_mode": "auto",
-    "pv_on_w": 1000, "pv_off_w": 500,
+    "pv_on_w": 300, "pv_off_w": 200,
     "pv_confirm_minutes": 5, "pv_hold_minutes": 20, "pv_aux_gap": 1.0,
     "temperature_sensor": "sensor.wz_temp",
     "secondary_temperature_sensor": "sensor.0x881a14fffe0e9a1e_temperature",
