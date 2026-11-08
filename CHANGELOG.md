@@ -1,3 +1,7 @@
+## 0.3.30
+
+- Große Fahrplanattribute korrekt vom Recorder ausschließen. Die Live-Anzeige behält alle Details.
+
 ## 0.3.29
 
 - Haus-Wärmeverbrauch je Kalendertag speichern und am Wärmezähler als aufklappbares Balkendiagramm anzeigen.

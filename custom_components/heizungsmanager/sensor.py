@@ -42,6 +42,8 @@ class HeatingPlanSensor(CoordinatorEntity, SensorEntity):
     _attr_has_entity_name = True
     _attr_name = "Heizungsmanager WZ Fahrplan"
     _attr_icon = "mdi:chart-timeline-variant"
+    # Home Assistant reads these exclusions when it creates the entity class.
+    _unrecorded_attributes = frozenset({"plan", "history", "config", "model", "updated"})
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator)
@@ -49,8 +51,6 @@ class HeatingPlanSensor(CoordinatorEntity, SensorEntity):
             self._attr_name = f"Heizungsmanager {coordinator.config['room_name']} " + ("Raumtemperatur" if isinstance(self, RoomTemperatureSensor) else "Fahrplan")
         self._attr_unique_id = f"{entry.entry_id}_plan"
         self._attr_suggested_object_id = f"heizungsmanager_{'wz' if coordinator.config['room_id']=='wohnzimmer' else coordinator.config['room_id']}_fahrplan"
-        # Large changing attributes are intentionally excluded from Recorder.
-        self._unrecorded_attributes = frozenset({"plan", "history", "config", "model", "updated"})
 
     @property
     def native_value(self):
