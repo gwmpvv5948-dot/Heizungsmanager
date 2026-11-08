@@ -64,7 +64,7 @@ class HouseHeat:
         if type(stamp) not in (int,float) or not math.isfinite(stamp) or not 0<stamp<=now:
             raise ValueError('Gültigen Ablesezeitpunkt in der Vergangenheit wählen')
         async with self.lock:
-            self.data={'base_kwh':base,'start':stamp,'rooms':{}}
+            self.data={'daily_extra_kwh':self.data.get('daily_extra_kwh'),'base_kwh':base,'start':stamp,'rooms':{}}
             self.attempted=None
             await self.store.async_save(self.data)
         await self.async_refresh()
@@ -79,11 +79,18 @@ class HouseHeat:
             if base is not None and value < base:
                 raise ValueError('Die Ablesung liegt unter dem bisherigen Startwert')
             measured = value - base if base is not None else 0
+            stamp = datetime.now(timezone.utc).timestamp()
+            daily_extra = self.data.get('daily_extra_kwh')
+            if previous['configured'] and not previous['incomplete']:
+                days = (stamp - previous['start']) / 86400
+                if days >= 1:
+                    observed_extra = max(0, measured - previous['radiator_kwh']) / days
+                    daily_extra = observed_extra if daily_extra is None else .7 * daily_extra + .3 * observed_extra
             comparison = None
             if measured > 0 and previous['configured'] and not previous['incomplete']:
                 comparison = 100 * (previous['added_kwh'] / measured - 1)
             reading = {
-                'base_kwh': value, 'start': datetime.now(timezone.utc).timestamp(),
+                'base_kwh': value, 'start': stamp, 'daily_extra_kwh': daily_extra,
                 'rooms': {}, 'comparison_percent': comparison,
             }
             await self.store.async_save(reading)
@@ -97,7 +104,7 @@ class HouseHeat:
         if type(value) not in (int,float) or not math.isfinite(value) or not 0<=value<=1e9:
             raise ValueError('Startwert in kWh muss zwischen 0 und 1.000.000.000 liegen')
         async with self.lock:
-            self.data={'base_kwh':value,'start':self.data.get('start'),'rooms':{}}
+            self.data={'daily_extra_kwh':self.data.get('daily_extra_kwh'),'base_kwh':value,'start':self.data.get('start'),'rooms':{}}
             self.attempted=None
             await self.store.async_save(self.data)
         await self.async_refresh()
@@ -109,7 +116,7 @@ class HouseHeat:
         if not 0<stamp<=datetime.now(timezone.utc).timestamp():
             raise ValueError('Ablesezeitpunkt muss in der Vergangenheit liegen')
         async with self.lock:
-            self.data={'base_kwh':self.data.get('base_kwh'),'start':stamp,'rooms':{}}
+            self.data={'daily_extra_kwh':self.data.get('daily_extra_kwh'),'base_kwh':self.data.get('base_kwh'),'start':stamp,'rooms':{}}
             self.attempted=None
             await self.store.async_save(self.data)
         await self.async_refresh()
@@ -157,9 +164,12 @@ class HouseHeat:
     def status(self):
         configured=self.data.get('start') is not None and self.data.get('base_kwh') is not None
         rooms=self.data.get('rooms',{})
-        added=sum(r.get('added',0) for r in rooms.values())
+        radiator_kwh = sum(r.get('added', 0) for r in rooms.values())
+        daily_extra = self.data.get('daily_extra_kwh')
+        elapsed_days = max(0, datetime.now(timezone.utc).timestamp() - self.data['start']) / 86400 if configured else 0
+        added = radiator_kwh + (daily_extra or 0) * elapsed_days
         return {'configured':configured,'base_kwh':self.data.get('base_kwh'),'start':self.data.get('start'),
-            'comparison_percent':self.data.get('comparison_percent'), 'added_kwh':added,'total_kwh':self.data['base_kwh']+added if configured else None,
+            'daily_extra_kwh':daily_extra, 'radiator_kwh':radiator_kwh, 'comparison_percent':self.data.get('comparison_percent'), 'added_kwh':added,'total_kwh':self.data['base_kwh']+added if configured else None,
             'updated':self.data.get('updated'),'incomplete':configured and (not rooms or any(r.get('partial') for r in rooms.values()) or self.error is not None),
             'note':self.error or ('Historie teilweise unvollständig' if any(r.get('partial') for r in rooms.values()) else None)}
 

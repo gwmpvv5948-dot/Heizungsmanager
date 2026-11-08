@@ -1,3 +1,7 @@
+## 0.3.26
+
+- Der Haus-Wärmezähler lernt aus Ablesungen einen zusätzlichen Tagesbedarf, etwa für Warmwasser.
+
 ## 0.3.25
 
 - Die Raumübersicht berücksichtigt die gemessene Midea-Leistung beim Status „Hält“.

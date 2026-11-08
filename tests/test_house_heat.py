@@ -71,11 +71,13 @@ class HouseReadingTests(unittest.IsolatedAsyncioTestCase):
         meter = HouseHeat(N(data={}))
         meter.store.async_save = AsyncMock()
         meter.async_refresh = AsyncMock()
-        meter.data = {'base_kwh': 100, 'start': 1, 'rooms': {'room': {'added': 9}}}
+        meter.data = {'base_kwh': 100, 'start': datetime.now(timezone.utc).timestamp() - 2 * 86400,
+                      'rooms': {'room': {'added': 9}}}
         result = await meter.record_reading(110)
         self.assertAlmostEqual(result['comparison_percent'], -10)
-        self.assertEqual(result['total_kwh'], 110)
-        self.assertEqual(result['added_kwh'], 0)
+        self.assertAlmostEqual(result['daily_extra_kwh'], .5, places=5)
+        self.assertAlmostEqual(result['total_kwh'], 110)
+        self.assertAlmostEqual(result['added_kwh'], 0)
         with self.assertRaises(ValueError):
             await meter.record_reading(109)
         self.assertEqual(meter.status()['base_kwh'], 110)

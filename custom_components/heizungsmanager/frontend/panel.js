@@ -1,8 +1,8 @@
-import {wallHeaterSwitch,wallHeaterPowerId} from './energy-overview.js?v=0.3.25';
-import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.25';
-import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.25';
-import {dayStart} from './consumption.js?v=0.3.25';
-import './heizungsmanager-card.js?v=0.3.25';
+import {wallHeaterSwitch,wallHeaterPowerId} from './energy-overview.js?v=0.3.26';
+import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.26';
+import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.26';
+import {dayStart} from './consumption.js?v=0.3.26';
+import './heizungsmanager-card.js?v=0.3.26';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [
