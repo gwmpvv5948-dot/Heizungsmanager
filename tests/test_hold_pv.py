@@ -34,7 +34,10 @@ class HoldTests(unittest.TestCase):
         signal={'preferred':True,'valid_until':self.now.timestamp()+300}
         self.assertFalse(self.plan(20.5,pv_status=signal)[0]['radiators'])
         self.assertTrue(self.plan(19,pv_status=signal)[0]['radiators'])
-        self.assertTrue(self.plan(20.5,pv_status=None)[0]['radiators'])
+        self.assertFalse(self.plan(20.5,pv_status=None)[0]['radiators'])
+        self.assertEqual(self.plan(20.5,pv_status=signal)[0]['control_target'],21.5)
+        stalled=(21,self.now.timestamp()-1200,20.5,False)
+        self.assertTrue(self.plan(20.5,assist_trial=stalled)[0]['radiators'])
         self.assertFalse(self.plan(20.5,pv_status=signal)[1]['pv_preferred'])
     def test_hold_respects_restart_delay_and_overheat_overrides_minimum_run(self):
         p=m.make_plan(self.now,20,5,[],self.c,self.model,pump_state=False,pump_state_since=self.now.timestamp())[0]

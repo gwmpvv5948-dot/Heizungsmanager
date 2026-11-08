@@ -48,6 +48,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
         self._pump_heat_commanded = False
         self.override = None
         self.pv_preference = PVPreference()
+        self._assist_trial = None
         self.wall_heater = WallHeater()
         self._startup_pending = False
         self._startup_ready_since = None
@@ -549,10 +550,13 @@ class HeatingCoordinator(DataUpdateCoordinator):
         # last_changed tracks the HVAC mode, not changing temperature/power attributes.
         # Restarting HA conservatively starts a fresh protection interval.
         pump_since = pump_state.last_changed.timestamp() if pump_state else now.timestamp()
+        can_trial = pump_on and self.mode == "Automatik" and not (startup_blocked or window_open or window_unknown or self.manual_until)
         plan = make_plan(now, temp, outside, forecast, self.config, self.model,
                          pump_on, self.override, pump_on, pump_since,
-                         bool(self.state("radiators") and self.state("radiators").state == "heat"),pv_status) if temp is not None else []
+                         bool(self.state("radiators") and self.state("radiators").state == "heat"),pv_status,
+                         assist_trial=self._assist_trial if can_trial else None) if temp is not None else []
         row = plan[0] if plan else None
+        self._assist_trial = row["assist_trial"] if row and can_trial else None
         self.pump_heat_active = bool(row and row["heat_pump"])
         status = row["phase"] if row else "Raumsensor fehlt oder ist veraltet"
         reason = row["reason"] if row else "Keine belastbare Raumtemperatur; automatische Steuerung pausiert"

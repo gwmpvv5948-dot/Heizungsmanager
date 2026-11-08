@@ -1,3 +1,7 @@
+## 0.3.22
+
+- Im Haltemodus heizt Midea zuerst. Heizkörper ergänzen bei größerem Defizit oder nach 20 Minuten mit weniger als 0,2 °C Erwärmung. Bei PV-Vorrang gilt unterhalb des Raumziels der Midea-Offset.
+
 ## 0.3.21
 
 - PV-Vorrang für Midea anhand der PV-Erzeugung. Standardmäßig aktiv über 300 W, auch in Heizkörperphasen mit Wärmebedarf.
