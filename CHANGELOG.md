@@ -1,3 +1,7 @@
+## 0.3.25
+
+- Die Raumübersicht berücksichtigt die gemessene Midea-Leistung beim Status „Hält“.
+
 ## 0.3.24
 
 - Raumübersicht zeigt den Status „Hält“ in einem sanften Orangeton.
