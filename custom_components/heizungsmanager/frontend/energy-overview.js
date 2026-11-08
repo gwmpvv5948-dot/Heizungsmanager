@@ -1,4 +1,4 @@
-import {energyKwh,powerWatts,counterToday,dayStart} from './consumption.js?v=0.3.26';
+import {energyKwh,powerWatts,counterToday,dayStart} from './consumption.js?v=0.3.27';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=(v,d=2)=>v.toLocaleString('de-DE',{maximumFractionDigits:d});
 const stamp=p=>typeof p.lu==='number'?p.lu*1000:Date.parse(p.last_updated||p.last_changed);

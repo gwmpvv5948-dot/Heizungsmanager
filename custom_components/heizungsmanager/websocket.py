@@ -21,7 +21,7 @@ def payload(hass, coordinator):
         existing = next((item for item in hass.data.get(DOMAIN, {}).values()
                          if hasattr(item, "entry") and item.config.get("room_id", "wohnzimmer") == room_id), None)
         rooms.append({"room_id": room_id, "name": name, "entry_id": existing.entry.entry_id if existing else None})
-    return {"rooms": rooms, "config": coordinator.config, "mode": coordinator.mode, "version": "0.3.26",
+    return {"rooms": rooms, "config": coordinator.config, "mode": coordinator.mode, "version": "0.3.27",
         "plan_entity": registry.async_get_entity_id("sensor", DOMAIN, f"{entry_id}_plan"),
         "mode_entity": registry.async_get_entity_id("select", DOMAIN, f"{entry_id}_mode")}
 
@@ -132,7 +132,8 @@ async def save_config(hass, connection, msg):
 
 
 @websocket_api.websocket_command({vol.Required("type"): "heizungsmanager/house_heat",
-    vol.Optional("reading_kwh"): vol.Coerce(float)})
+    vol.Optional("reading_kwh"): vol.Coerce(float),
+    vol.Optional("january_kwh"): vol.Coerce(float), vol.Optional("year"): int})
 @websocket_api.async_response
 async def house_heat_status(hass, connection, msg):
     if connection.user is None or not connection.user.is_admin:
@@ -140,7 +141,9 @@ async def house_heat_status(hass, connection, msg):
         return
     meter=await get_house_heat(hass)
     try:
-        if "reading_kwh" in msg:
+        if "january_kwh" in msg:
+            status = await meter.set_year_baseline(msg["january_kwh"], msg.get("year"))
+        elif "reading_kwh" in msg:
             status = await meter.record_reading(msg["reading_kwh"])
             from homeassistant.helpers.dispatcher import async_dispatcher_send
             async_dispatcher_send(hass, f"{DOMAIN}_house_heat_reading")

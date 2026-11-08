@@ -1,3 +1,7 @@
+## 0.3.27
+
+- Jahreswärmemenge am Haus-Wärmezähler. Der Ablesewert vom 1. Januar ist in den globalen Einstellungen hinterlegbar.
+
 ## 0.3.26
 
 - Der Haus-Wärmezähler lernt aus Ablesungen einen zusätzlichen Tagesbedarf, etwa für Warmwasser.

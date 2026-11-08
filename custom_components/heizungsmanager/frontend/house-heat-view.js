@@ -9,6 +9,7 @@ export function houseHeatView(status={},zone='Europe/Berlin'){
  return `<section class="house-heat-meter" aria-label="Geschätzter Haus-Wärmezähler"><div><small>Wärmezähler Haus · geschätzt</small>
  ${status.configured?`<strong>${status.total_kwh.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})} kWh</strong> <small>· +${number(status.added_kwh,1)} kWh seit Ablesung ${esc(date)}</small>`:'<small>Erste Ablesung erfassen</small>'}
  ${Number.isFinite(status.daily_extra_kwh)?`<small class="meter-message">Gelernter Aufschlag · ${number(status.daily_extra_kwh,2)} kWh/Tag</small>`:'<small class="meter-message">Tagesaufschlag lernt aus Ablesungen mit mindestens 24 h Abstand</small>'}
+ ${Number.isFinite(status.year_kwh)?`<small class="meter-message">Wärmemenge ${status.year} · <strong>${number(status.year_kwh,2)} kWh</strong> geschätzt</small>`:status.january_kwh!=null&&status.configured?`<small class="meter-message meter-warning">Januarwert liegt über dem aktuellen Zählerstand</small>`:''}
  ${comparison?`<small class="meter-message">${comparison}</small>`:''}
  ${status.incomplete?`<small class="meter-message meter-warning">${esc(status.note||'Fortschreibung unvollständig · Messdaten fehlen')}</small>`:''}</div>
  <button type="button" class="meter-read">Ablesen</button></section>`;

@@ -2,6 +2,7 @@
 import asyncio
 import math
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from homeassistant.helpers.storage import Store
 from .const import DOMAIN
 
@@ -64,7 +65,7 @@ class HouseHeat:
         if type(stamp) not in (int,float) or not math.isfinite(stamp) or not 0<stamp<=now:
             raise ValueError('Gültigen Ablesezeitpunkt in der Vergangenheit wählen')
         async with self.lock:
-            self.data={'daily_extra_kwh':self.data.get('daily_extra_kwh'),'base_kwh':base,'start':stamp,'rooms':{}}
+            self.data={'year_baseline':self.data.get('year_baseline'),'daily_extra_kwh':self.data.get('daily_extra_kwh'),'base_kwh':base,'start':stamp,'rooms':{}}
             self.attempted=None
             await self.store.async_save(self.data)
         await self.async_refresh()
@@ -92,6 +93,7 @@ class HouseHeat:
             reading = {
                 'base_kwh': value, 'start': stamp, 'daily_extra_kwh': daily_extra,
                 'rooms': {}, 'comparison_percent': comparison,
+                'year_baseline': self.data.get('year_baseline'),
             }
             await self.store.async_save(reading)
             self.data = reading
@@ -104,7 +106,7 @@ class HouseHeat:
         if type(value) not in (int,float) or not math.isfinite(value) or not 0<=value<=1e9:
             raise ValueError('Startwert in kWh muss zwischen 0 und 1.000.000.000 liegen')
         async with self.lock:
-            self.data={'daily_extra_kwh':self.data.get('daily_extra_kwh'),'base_kwh':value,'start':self.data.get('start'),'rooms':{}}
+            self.data={'year_baseline':self.data.get('year_baseline'),'daily_extra_kwh':self.data.get('daily_extra_kwh'),'base_kwh':value,'start':self.data.get('start'),'rooms':{}}
             self.attempted=None
             await self.store.async_save(self.data)
         await self.async_refresh()
@@ -116,7 +118,7 @@ class HouseHeat:
         if not 0<stamp<=datetime.now(timezone.utc).timestamp():
             raise ValueError('Ablesezeitpunkt muss in der Vergangenheit liegen')
         async with self.lock:
-            self.data={'daily_extra_kwh':self.data.get('daily_extra_kwh'),'base_kwh':self.data.get('base_kwh'),'start':stamp,'rooms':{}}
+            self.data={'year_baseline':self.data.get('year_baseline'),'daily_extra_kwh':self.data.get('daily_extra_kwh'),'base_kwh':self.data.get('base_kwh'),'start':stamp,'rooms':{}}
             self.attempted=None
             await self.store.async_save(self.data)
         await self.async_refresh()
@@ -161,6 +163,21 @@ class HouseHeat:
             except Exception:
                 self.error='Fortschreibung wartet auf HA-Messdaten'
 
+    def calendar_year(self):
+        zone = getattr(getattr(self.hass, 'config', None), 'time_zone', 'UTC')
+        return datetime.now(ZoneInfo(zone)).year
+
+    async def set_year_baseline(self, value, year):
+        if not math.isfinite(value) or not 0 <= value <= 1e9:
+            raise ValueError('Ungültiger Zählerstand für den 1. Januar')
+        async with self.lock:
+            if year != self.calendar_year():
+                raise ValueError('Das Kalenderjahr hat gewechselt. Einstellungen erneut öffnen.')
+            data = {**self.data, 'year_baseline': {'year': year, 'kwh': value}}
+            await self.store.async_save(data)
+            self.data = data
+        return self.status()
+
     def status(self):
         configured=self.data.get('start') is not None and self.data.get('base_kwh') is not None
         rooms=self.data.get('rooms',{})
@@ -168,8 +185,13 @@ class HouseHeat:
         daily_extra = self.data.get('daily_extra_kwh')
         elapsed_days = max(0, datetime.now(timezone.utc).timestamp() - self.data['start']) / 86400 if configured else 0
         added = radiator_kwh + (daily_extra or 0) * elapsed_days
-        return {'configured':configured,'base_kwh':self.data.get('base_kwh'),'start':self.data.get('start'),
-            'daily_extra_kwh':daily_extra, 'radiator_kwh':radiator_kwh, 'comparison_percent':self.data.get('comparison_percent'), 'added_kwh':added,'total_kwh':self.data['base_kwh']+added if configured else None,
+        total = self.data['base_kwh'] + added if configured else None
+        year = self.calendar_year()
+        baseline = self.data.get('year_baseline') or {}
+        january = baseline.get('kwh') if baseline.get('year') == year else None
+        year_kwh = total - january if total is not None and january is not None and total >= january else None
+        return {'year':year, 'january_kwh':january, 'year_kwh':year_kwh, 'configured':configured,'base_kwh':self.data.get('base_kwh'),'start':self.data.get('start'),
+            'daily_extra_kwh':daily_extra, 'radiator_kwh':radiator_kwh, 'comparison_percent':self.data.get('comparison_percent'), 'added_kwh':added,'total_kwh':total,
             'updated':self.data.get('updated'),'incomplete':configured and (not rooms or any(r.get('partial') for r in rooms.values()) or self.error is not None),
             'note':self.error or ('Historie teilweise unvollständig' if any(r.get('partial') for r in rooms.values()) else None)}
 
