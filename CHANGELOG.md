@@ -1,3 +1,7 @@
+## 0.3.23
+
+- Manuelle Heizpause zeigt die betroffene Entität und die Abweichung beim Modus oder Sollwert. Der Auslöser erscheint auch im Home-Assistant-Protokoll.
+
 ## 0.3.22
 
 - Im Haltemodus heizt Midea zuerst. Heizkörper ergänzen bei größerem Defizit oder nach 20 Minuten mit weniger als 0,2 °C Erwärmung. Bei PV-Vorrang gilt unterhalb des Raumziels der Midea-Offset.

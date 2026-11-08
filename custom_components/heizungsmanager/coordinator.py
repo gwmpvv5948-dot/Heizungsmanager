@@ -35,6 +35,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
         self.previous = None
         self.commands = {}
         self.manual_until = None
+        self.manual_trigger = None
         self.open_since = None
         self.history = []
         self.history_attempted = None
@@ -296,11 +297,21 @@ class HeatingCoordinator(DataUpdateCoordinator):
             if not state or now.timestamp() - expected[2] < 15:
                 continue
             target = finite(state.attributes.get("temperature"), 0, 40)
-            mismatch = state.state != expected[0]
-            if expected[0] != "off" and target is not None:
-                mismatch |= abs(target - expected[1]) > 0.15
-            if mismatch and state.state not in ("unavailable", "unknown"):
+            changes = []
+            if state.state != expected[0]:
+                changes.append(f"Modus erwartet {expected[0]}, gemeldet {state.state}")
+            if expected[0] != "off" and target is not None and abs(target - expected[1]) > 0.15:
+                changes.append(f"Soll erwartet {expected[1]:g} °C, gemeldet {target:g} °C")
+            if changes and state.state not in ("unavailable", "unknown"):
                 self.manual_until = now + timedelta(minutes=self.config["manual_pause_minutes"])
+                self.manual_trigger = {
+                    "entity_id": self.config[key],
+                    "detected_at": now.isoformat(),
+                    "changes": changes,
+                }
+                _LOGGER.warning("Manuelle Heizpause für %s bis %s. %s",
+                                self.manual_trigger["entity_id"], self.manual_until.isoformat(),
+                                " · ".join(changes))
                 self.commands = {}
                 self.previous = None
                 return
@@ -566,7 +577,9 @@ class HeatingCoordinator(DataUpdateCoordinator):
             status = "Terrassentür offen" if window_pause else "Tür offen – Verzögerung"
             reason = "Heizpause; Neustart nach Schließen der Tür" if window_pause else "Warte auf konfigurierte Türverzögerung"
         elif self.manual_until:
-            status, reason = "Manuelle Pause", f"Externe Geräteänderung oder Gegenregelung erkannt; Automatik pausiert bis {self.manual_until.strftime('%H:%M')}"
+            trigger = self.manual_trigger
+            details = f"{trigger['entity_id']} · {' · '.join(trigger['changes'])}" if trigger else "Geräteabweichung erkannt"
+            status, reason = "Manuelle Pause", f"{details} · Automatik pausiert bis {self.manual_until:%H:%M}"
         elif self.mode == "Aus":
             status, reason = "Aus", "Beide Wärmequellen ausgeschaltet; kein Frostschutz durch diesen Manager"
         if startup_blocked:
@@ -606,6 +619,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
                 "entry_id": self.entry.entry_id,
                 "temperature_info": temperature_info, "outdoor": outside, "target": row["target"] if row else None,
                 "window_open": window_open, "window_unknown": window_unknown,
+                "last_manual_trigger": self.manual_trigger,
                 "manual_until": self.manual_until.isoformat() if self.manual_until else None,
                 "pv_preference":pv_status,"plan": plan, "history": self.history, "model": self.model.dump(),
                 "learning_quality": self.model.quality, "weather_note": self.weather_note,
