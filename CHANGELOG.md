@@ -1,3 +1,7 @@
+## 0.3.29
+
+- Haus-Wärmeverbrauch je Kalendertag speichern und am Wärmezähler als aufklappbares Balkendiagramm anzeigen.
+
 ## 0.3.28
 
 - Angaben zu Tagesaufschlag, Jahreswärmemenge und Ablesevergleich stehen unter dem Zählerstand in einem aufklappbaren Bereich.

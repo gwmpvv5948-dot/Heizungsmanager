@@ -1,6 +1,6 @@
-import {energyOverview,energyOverviewCSS} from './energy-overview.js?v=0.3.28';
-import {equipmentStatus} from './equipment.js?v=0.3.28';
-import {powerWatts,energyKwh,counterToday,dayStart} from './consumption.js?v=0.3.28';
+import {energyOverview,energyOverviewCSS} from './energy-overview.js?v=0.3.29';
+import {equipmentStatus} from './equipment.js?v=0.3.29';
+import {powerWatts,energyKwh,counterToday,dayStart} from './consumption.js?v=0.3.29';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=(v,d=1)=>Number.isFinite(v)?v.toLocaleString('de-DE',{maximumFractionDigits:d}):'—';
 const ok=s=>s&&!['unknown','unavailable'].includes(s.state)&&!s.attributes?.restored;
