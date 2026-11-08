@@ -1,3 +1,7 @@
+## 0.3.28
+
+- Angaben zu Tagesaufschlag, Jahreswärmemenge und Ablesevergleich stehen unter dem Zählerstand in einem aufklappbaren Bereich.
+
 ## 0.3.27
 
 - Jahreswärmemenge am Haus-Wärmezähler. Der Ablesewert vom 1. Januar ist in den globalen Einstellungen hinterlegbar.

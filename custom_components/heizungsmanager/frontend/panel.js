@@ -1,8 +1,8 @@
-import {wallHeaterSwitch,wallHeaterPowerId} from './energy-overview.js?v=0.3.27';
-import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.27';
-import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.27';
-import {dayStart} from './consumption.js?v=0.3.27';
-import './heizungsmanager-card.js?v=0.3.27';
+import {wallHeaterSwitch,wallHeaterPowerId} from './energy-overview.js?v=0.3.28';
+import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.28';
+import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.28';
+import {dayStart} from './consumption.js?v=0.3.28';
+import './heizungsmanager-card.js?v=0.3.28';
 
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SETTINGS = [
@@ -123,7 +123,7 @@ class HeizungsmanagerPanel extends HTMLElement {
     this.refreshRadiatorHistory();
     this.refreshHouseHeat();
     const zone=this._hass.config?.time_zone||'Europe/Berlin';
-    const meter=houseHeatView(this._houseHeat||{},zone);
+    const meter=houseHeatView(this._houseHeat||{},zone,content.querySelector('.meter-details')?.open);
     const html=overviewHTML(this._hass.states,this.homeFilter||'all',Date.now(),this._radiatorHistory||{},zone,meter);
     if(content.innerHTML===html)return;
     content.innerHTML=html;
