@@ -1,3 +1,7 @@
+## 0.3.32
+
+- Wunschtemperatur direkt auf Raumkacheln vorübergehend ändern und aktive Vorgaben über den Filter Manuell finden.
+
 ## 0.3.31
 
 - Die Raumübersicht zeigt bei hoher Klimaleistung oder weit geöffneten Heizkörperventilen „Heizt“.

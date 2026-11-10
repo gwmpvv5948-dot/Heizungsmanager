@@ -1,6 +1,6 @@
-import {wallHeaterSwitch,wallHeaterPowerId} from './energy-overview.js?v=0.3.31';
+import {wallHeaterSwitch,wallHeaterPowerId} from './energy-overview.js?v=0.3.32';
 import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.29';
-import {overviewHTML,overviewCSS,roomOverview} from './overview.js?v=0.3.31';
+import {overviewHTML,overviewCSS,quickOverviewCSS,roomOverview} from './overview.js?v=0.3.32';
 import {dayStart} from './consumption.js?v=0.3.29';
 import './heizungsmanager-card.js?v=0.3.29';
 
@@ -124,16 +124,51 @@ class HeizungsmanagerPanel extends HTMLElement {
     this.refreshHouseHeat();
     const zone=this._hass.config?.time_zone||'Europe/Berlin';
     const meter=houseHeatView(this._houseHeat||{},zone,content.querySelector('.meter-details')?.open,content.querySelector('.meter-usage')?.open);
-    const html=overviewHTML(this._hass.states,this.homeFilter||'all',Date.now(),this._radiatorHistory||{},zone,meter);
+    this._quickDrafts??=new Map();
+    this._quickBusy??=new Set();
+    this._quickErrors??=new Map();
+    const html=overviewHTML(this._hass.states,this.homeFilter||'all',Date.now(),this._radiatorHistory||{},zone,meter,{enabled:this._hass.user?.is_admin,drafts:this._quickDrafts,busy:this._quickBusy,errors:this._quickErrors});
     if(content.innerHTML===html)return;
     const chartScroll=content.querySelector('.meter-bars')?.scrollLeft;
     content.innerHTML=html;
     if(chartScroll)content.querySelector('.meter-bars').scrollLeft=chartScroll;
     content.querySelector('.meter-read').onclick=()=>this.openMeterReading();
     content.querySelectorAll('[data-home-filter]').forEach(button=>button.onclick=()=>{this.homeFilter=button.dataset.homeFilter;this.updateOverview();});
+    content.querySelectorAll('[data-quick],[data-duration]').forEach(button=>{
+      button.onclick=()=>this.changeRoomTarget(button);
+    });
     content.querySelectorAll('[data-open-room]').forEach(button=>button.onclick=async()=>{
       this.selectedEntry=button.dataset.openRoom;this.tab='plan';this._loaded=false;this._dirty=false;await this.maybeLoad();
     });
+  }
+  async changeRoomTarget(button) {
+    const tile=button.closest('[data-quick-room]');
+    const entry=tile.dataset.quickRoom, action=button.dataset.quick;
+    if(this._quickBusy.has(entry))return;
+    const draft=this._quickDrafts.get(entry);
+    this._quickErrors.delete(entry);
+    if(action==='plus'||action==='minus'){
+      const target=draft?.temperature??Number(tile.dataset.quickTarget);
+      const temperature=Math.max(16,Math.min(24,Math.round(target*2+(action==='plus'?1:-1))/2));
+      this._quickDrafts.set(entry,{temperature,duration:draft?.duration??'schedule'});
+    }else if(button.dataset.duration&&draft){
+      draft.duration=button.dataset.duration;
+    }else if(action==='cancel'){
+      this._quickDrafts.delete(entry);
+    }else if((action==='set'&&draft)||action==='clear'){
+      this._quickBusy.add(entry);
+      this.updateOverview();
+      try{
+        const args=action==='set'?draft:{};
+        await this._hass.callWS({type:'heizungsmanager/override',entry_id:entry,action,...args});
+        this._quickDrafts.delete(entry);
+      }catch(error){
+        this._quickErrors.set(entry,error?.message||'Änderung fehlgeschlagen');
+      }finally{
+        this._quickBusy.delete(entry);
+      }
+    }
+    this.updateOverview();
   }
   async openGlobalHeatSettings() {
     try {
@@ -189,7 +224,7 @@ class HeizungsmanagerPanel extends HTMLElement {
     if(!this._loaded) return;
     this.shadowRoot.innerHTML=`<style>
       :host{display:block;height:100%;color:var(--primary-text-color);background:var(--primary-background-color);font-family:var(--paper-font-body1_-_font-family,system-ui)}*{box-sizing:border-box}.shell{height:100%;overflow:auto}.toolbar{display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:2;min-height:64px;padding:10px 24px;background:var(--app-header-background-color,var(--card-background-color));border-bottom:1px solid var(--divider-color);color:var(--app-header-text-color,var(--primary-text-color))}.toolbar h1{font-size:20px;margin:0;font-weight:600}.version{font-size:12px;opacity:.6;margin-left:auto}.menu{padding:8px;border:0;font-size:24px;background:transparent;color:inherit;cursor:pointer}.tabs{display:flex;gap:8px;padding:18px 0}.tabs button{background:transparent;color:var(--secondary-text-color);border:0;border-bottom:3px solid transparent;padding:12px 16px;cursor:pointer;font-size:15px}.tabs button.active{color:var(--primary-color,#42bfa7);border-color:var(--primary-color,#42bfa7)}main{max-width:1140px;margin:auto;padding:0 24px 40px}.intro{font-size:13px;color:var(--secondary-text-color);line-height:1.6;margin:0 0 18px}.section{background:var(--ha-card-background,var(--card-background-color));border:1px solid var(--divider-color);border-radius:16px;padding:22px;margin-bottom:18px}h2{font-size:18px;margin:0 0 8px}.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;margin-top:20px}.phase-row{border:1px solid var(--divider-color);border-radius:12px;margin:18px 0 0;padding:14px;min-width:0}.phase-row legend{font-weight:650;padding:0 8px}.phase-fields{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:4px;gap:14px}.field{display:flex;flex-direction:column;gap:8px;min-width:0}label{font-size:14px;font-weight:550}input,select{width:100%;min-height:44px;border:1px solid var(--divider-color);border-radius:8px;padding:10px;background:var(--primary-background-color);color:var(--primary-text-color);font:inherit}small{font-size:12px;color:var(--secondary-text-color);line-height:1.5}.actions{position:sticky;bottom:0;padding:16px;background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}button.save{background:var(--primary-color,#42bfa7);color:var(--text-primary-color,#fff);border:0;border-radius:9px;padding:12px 22px;cursor:pointer;font-weight:600}button.reset{background:transparent;color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:9px;padding:11px 18px;cursor:pointer}button:disabled{opacity:.5;cursor:wait}.feedback{font-size:13px;line-height:1.5;flex:1;min-width:180px}.feedback.error{color:var(--error-color,#e86f6f)}.notice{background:#f4aa5819;border-left:3px solid #f4aa58;padding:14px;font-size:13px;line-height:1.6;border-radius:8px;margin-bottom:18px}.readonly{font-size:13px;line-height:1.8}.readonly strong{font-weight:550}.operation{margin-bottom:18px}.operation select{max-width:250px;margin-top:8px}.operation label{display:block}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.operation:has(#room-select){display:inline-block;margin:10px 0 0 12px}.back-home[hidden],.operation[hidden]{display:none}#mode-message{font-size:12px;margin-top:8px} @media(max-width:650px){.phase-fields{grid-template-columns:1fr}main{padding:0 12px 24px}.toolbar{padding:10px 12px}.fields{grid-template-columns:1fr}.section{padding:17px}.tabs button{padding:10px 12px}.version{font-size:11px}}
-      ${overviewCSS}${houseHeatCSS}</style><div class="shell"><header class="toolbar"><button class="menu" aria-label="Seitenleiste umschalten">☰</button><img src="/heizungsmanager-static/heizungsmanager-icon.png" alt="" width="32" height="32"><h1>Heizungsmanager</h1><button type="button" class="reset global-heat-settings">Globale Einstellungen</button><span class="global-heat-feedback" role="status"></span><span class="version">${escapeHTML(this.settings.config.room_name)} · v${escapeHTML(this.settings.version)}</span></header><main><button class="back-home" ${this.tab==='home'?'hidden':''}>‹ Übersicht</button><div class="operation" ${this.tab==='home'?'hidden':''}><label class="sr-only" for="room-select">Raum wechseln</label><select id="room-select">${(this.settings.rooms||[]).map(room=>`<option value="${escapeHTML(room.entry_id||'')}" ${room.entry_id===this.entryId?'selected':''} ${room.entry_id?'':'disabled'}>${escapeHTML(room.name)}${room.entry_id?'':' · noch nicht eingerichtet'}</option>`).join('')}</select></div><nav class="tabs" role="tablist" ${this.tab==='home'?'style="display:none"':''}><button role="tab" aria-selected="${this.tab==='plan'}" data-tab="plan" class="${this.tab==='plan'?'active':''}">Heiz-Fahrplan</button><button role="tab" aria-selected="${this.tab==='settings'}" data-tab="settings" class="${this.tab==='settings'?'active':''}">Einstellungen</button></nav><div id="content"></div></main></div>`;
+      ${overviewCSS}${quickOverviewCSS}${houseHeatCSS}</style><div class="shell"><header class="toolbar"><button class="menu" aria-label="Seitenleiste umschalten">☰</button><img src="/heizungsmanager-static/heizungsmanager-icon.png" alt="" width="32" height="32"><h1>Heizungsmanager</h1><button type="button" class="reset global-heat-settings">Globale Einstellungen</button><span class="global-heat-feedback" role="status"></span><span class="version">${escapeHTML(this.settings.config.room_name)} · v${escapeHTML(this.settings.version)}</span></header><main><button class="back-home" ${this.tab==='home'?'hidden':''}>‹ Übersicht</button><div class="operation" ${this.tab==='home'?'hidden':''}><label class="sr-only" for="room-select">Raum wechseln</label><select id="room-select">${(this.settings.rooms||[]).map(room=>`<option value="${escapeHTML(room.entry_id||'')}" ${room.entry_id===this.entryId?'selected':''} ${room.entry_id?'':'disabled'}>${escapeHTML(room.name)}${room.entry_id?'':' · noch nicht eingerichtet'}</option>`).join('')}</select></div><nav class="tabs" role="tablist" ${this.tab==='home'?'style="display:none"':''}><button role="tab" aria-selected="${this.tab==='plan'}" data-tab="plan" class="${this.tab==='plan'?'active':''}">Heiz-Fahrplan</button><button role="tab" aria-selected="${this.tab==='settings'}" data-tab="settings" class="${this.tab==='settings'?'active':''}">Einstellungen</button></nav><div id="content"></div></main></div>`;
     this.shadowRoot.querySelector('.global-heat-settings').onclick=()=>this.openGlobalHeatSettings();
     this.shadowRoot.querySelector('.back-home').onclick=()=>{if(this._dirty&&!window.confirm('Ungespeicherte Änderungen verwerfen?'))return;this.tab='home';this.render();};
     this.shadowRoot.querySelector('#room-select').addEventListener('change',async event=>{
