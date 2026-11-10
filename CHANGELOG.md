@@ -1,3 +1,7 @@
+## 0.3.31
+
+- Die Raumübersicht zeigt bei hoher Klimaleistung oder weit geöffneten Heizkörperventilen „Heizt“.
+
 ## 0.3.30
 
 - Große Fahrplanattribute korrekt vom Recorder ausschließen. Die Live-Anzeige behält alle Details.

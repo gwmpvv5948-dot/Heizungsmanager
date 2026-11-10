@@ -26,11 +26,13 @@ export function roomOverview(states,now=Date.now()){
   const heating=pumpRunning||devices.some(d=>states[d.id]?.attributes?.hvac_action==='heating')||(ok(states[c.radiators])&&states[c.radiators].state!=='off'&&Number.isFinite(valve)&&valve>0);
   const near=Number.isFinite(a.target)&&Math.abs(a.temperature-a.target)<=.3;
   const eco=[c.radiators,c.heat_pump].some(id=>['eco','away','frost'].includes(states[id]?.attributes?.preset_mode));
-  const status=offline?'Offline':a.mode==='Temperaturanzeige'?'Nur Temperatur':a.window_unknown?'Kontakt unklar':a.window_open?'Fenster/Tür offen':pumpRunning&&(near||!pumpHeating)?'Hält':heating&&(pumpHeating||!near||!Number.isFinite(valve)||valve>25)?'Heizt':heating&&near?'Hält':eco||a.plan[0]?.phase==='night'?'Absenkung':'Ruht';
+  const strongHeating=(pumpRunning&&watts>1000)||openings.some(({value})=>value>50)
+    ||(ok(states[c.radiators])&&states[c.radiators].state!=='off'&&valve>50);
+  const status=offline?'Offline':a.mode==='Temperaturanzeige'?'Nur Temperatur':a.window_unknown?'Kontakt unklar':a.window_open?'Fenster/Tür offen':strongHeating?'Heizt':pumpRunning&&(near||!pumpHeating)?'Hält':heating&&(pumpHeating||!near||!Number.isFinite(valve)||valve>25)?'Heizt':heating&&near?'Hält':eco||a.plan[0]?.phase==='night'?'Absenkung':'Ruht';
   const rank=offline?0:a.window_unknown||a.window_open?1:status==='Heizt'?2:3;
   const next=a.plan.find(p=>Number.isFinite(p.target)&&p.target!==a.target);
   const context=offline?'Gerät oder Raumdaten fehlen / sind veraltet':a.window_open?(a.status?.includes('Tür')||a.status?.includes('Fenster')?a.reason:'Tür/Fenster offen · Schutzregel aktiv'):next?`ab ${new Date(next.time).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} → ${num(next.target)}°`:`${a.mode} · ${a.status||'Kein nächster Zielwechsel'}`;
-  return {updated:a.updated,config:c,id:a.entry_id,roomId:c.room_id,name:c.room_name||c.room_id,status,rank,heating:!offline&&heating,temp:offline?null:a.temperature,target:a.target,outdoor:a.outdoor,context,history:a.history||[],hasClimate:devices.some(d=>d.kind==='heat_pump'),radiatorCount:roomRadiators.length,wallHeater:devices.find(d=>d.kind==='wall_heater'),openings,powerId:c.power_sensor,energyId:c.pump_daily_energy_sensor,watts,energy:energyKwh(states[c.pump_daily_energy_sensor])};
+  return {updated:a.updated,config:c,id:a.entry_id,roomId:c.room_id,name:c.room_name||c.room_id,status,rank,heating:!offline&&(heating||strongHeating),temp:offline?null:a.temperature,target:a.target,outdoor:a.outdoor,context,history:a.history||[],hasClimate:devices.some(d=>d.kind==='heat_pump'),radiatorCount:roomRadiators.length,wallHeater:devices.find(d=>d.kind==='wall_heater'),openings,powerId:c.power_sensor,energyId:c.pump_daily_energy_sensor,watts,energy:energyKwh(states[c.pump_daily_energy_sensor])};
  }).sort((a,b)=>Math.min(a.rank,2)-Math.min(b.rank,2)||(a.roomId==='wohnzimmer'?0:1)-(b.roomId==='wohnzimmer'?0:1)||a.rank-b.rank||a.name.localeCompare(b.name,'de'));
 }
 function spark(r,now){
