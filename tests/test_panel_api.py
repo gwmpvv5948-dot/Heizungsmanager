@@ -1,5 +1,6 @@
 """Exercise API handlers with minimal HA connection/registry boundaries."""
 import ast
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import IsolatedAsyncioTestCase
@@ -12,8 +13,12 @@ for node in tree.body:
     if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef)) and node.name!='async_register_api':
         node.decorator_list=[]
         functions.append(node)
+    elif isinstance(node, ast.Assign) and any(
+        isinstance(target, ast.Name) and target.id == 'VERSION' for target in node.targets
+    ):
+        functions.append(node)
 registry=SimpleNamespace(async_get_entity_id=lambda domain,platform,uid:domain+'.'+uid)
-ns={'ROOMS':{'wohnzimmer':'Wohnzimmer','alwin':'Alwin'},'DOMAIN':'heizungsmanager','er':SimpleNamespace(async_get=lambda hass:registry),
+ns={'__file__':str(path),'Path':Path,'json':json,'ROOMS':{'wohnzimmer':'Wohnzimmer','alwin':'Alwin'},'DOMAIN':'heizungsmanager','er':SimpleNamespace(async_get=lambda hass:registry),
     'schema':lambda config:lambda data:data,'validate':lambda config:None,
     'vol':SimpleNamespace(Invalid=ValueError)}
 exec(compile(ast.Module(body=functions,type_ignores=[]),str(path),'exec'),ns)
@@ -42,6 +47,7 @@ class PanelApiTests(IsolatedAsyncioTestCase):
         await ns['get_config'](hass,c,{'id':1,'entry_id':'wz'})
         c.send_error.assert_not_called()
         result=c.send_result.call_args.args[1]
+        self.assertEqual(result['version'], json.loads(path.with_name('manifest.json').read_text())['version'])
         self.assertEqual(result['plan_entity'],'sensor.wz_plan')
         self.assertEqual(result['mode_entity'],'select.wz_mode')
 

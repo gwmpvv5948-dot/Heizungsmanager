@@ -1,3 +1,8 @@
+## 0.3.35
+
+- Strom heute weist den Midea-Tagesverbrauch aus und berücksichtigt den Tageswechsel bei den Stundenbalken.
+- Die Panel-Version stammt aus dem Integrationsmanifest.
+
 ## 0.3.34
 
 - Midea im Wohnzimmer erhält die gemessene Raumtemperatur zwischen 19 und 24 °C per Follow Me über den Moes-IR-Sender.

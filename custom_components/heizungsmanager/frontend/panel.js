@@ -1,6 +1,6 @@
-import {wallHeaterSwitch,wallHeaterPowerId} from './energy-overview.js?v=0.3.32';
+import {wallHeaterSwitch,wallHeaterPowerId} from './energy-overview.js?v=0.3.35';
 import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.29';
-import {overviewHTML,overviewCSS,quickOverviewCSS,roomOverview} from './overview.js?v=0.3.32';
+import {overviewHTML,overviewCSS,quickOverviewCSS,roomOverview} from './overview.js?v=0.3.35';
 import {dayStart} from './consumption.js?v=0.3.29';
 import './heizungsmanager-card.js?v=0.3.29';
 

@@ -17,3 +17,10 @@ test('room breakdown uses configured new helper IDs and deduplicates shared coun
  const rows=radiatorRooms(states,[room,room],history,Date.parse('2026-11-06T02:00:00Z'),'UTC');
  assert.equal(rows.length,1);assert.equal(rows[0].value,2);
 });
+
+test('hourly daily counter ignores the previous day before its first reset reading',()=>{
+ const states={e:{state:'2',attributes:{unit_of_measurement:'kWh'}}};
+ const yesterday={...row('00',7),last_updated:'2026-11-05T23:55:00Z'};
+ const history={e:[yesterday,row('02',2)]};
+ assert.deepEqual(hourlyElectricity(states,['e'],history,Date.parse('2026-11-06T02:00:00Z'),'UTC').map(p=>p.value),[null,2]);
+});
