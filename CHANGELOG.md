@@ -1,3 +1,7 @@
+## 0.3.39
+
+- Globale Einstellungen mit Tagesdiagramm, frei editierbaren KNX-Phasen, Sommermodus-Schalter und Wärmezählerwerten.
+
 ## 0.3.38
 
 - Vier editierbare KNX-Phasen, Ein-/Ausschalter für den HM-Zeitplan und Live-Anzeige des Sommermodus.

@@ -182,106 +182,225 @@ class HeizungsmanagerPanel extends HTMLElement {
     this.render();
   }
   renderGlobalSettings(content) {
-    content.innerHTML=`<h2>Globale Einstellungen</h2>
-      <section class="section"><h2>Zentraler KNX-Stellantrieb</h2>
-        <p>Aktuelle Stellung <strong data-valve-position></strong> · Sommermodus <strong data-valve-summer></strong></p>
-        <p data-valve-status role="status">Zeitplan wird geladen …</p>
-        <ul data-valve-slots></ul>
-        <form data-valve-form hidden>
-          <label><input type="checkbox" name="enabled" style="width:auto;min-height:0"> HM-Zeitplan aktiv</label>
-          <div class="fields">${[0,1,2,3].map(i=>`<fieldset class="phase-row"><legend>Phase ${i+1}</legend>
-            <label>Ab <input type="time" name="start${i}" required ${i===0?'readonly':''}></label>
-            <label>Ventilstellung (%) <input type="number" name="value${i}" min="0" max="100" step="any" required></label>
-          </fieldset>`).join('')}</div>
-          <button type="submit" class="save">Zeitplan speichern</button>
+    content.innerHTML=`<style>
+      .global-layout{display:grid;grid-template-columns:160px minmax(0,1fr);gap:18px}
+      .global-nav{display:flex;flex-direction:column;gap:8px;align-self:start}
+      .global-heading,.valve-head,.valve-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+      .valve-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0}
+      .valve-stats>div{padding:12px;background:var(--primary-background-color);border-radius:10px}
+      .valve-stats strong{display:block;margin:4px 0}
+      .valve-chart{width:100%;display:block;margin:12px 0}
+      .valve-row{display:grid;grid-template-columns:12px minmax(92px,110px) minmax(45px,1fr) 56px 38px;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--divider-color)}
+      .valve-row i{height:10px;border-radius:3px}
+      .valve-row input[type=range]{padding:0;accent-color:var(--phase)}
+      .valve-row button{padding:8px}
+      .valve-row small{grid-column:2/-1;color:var(--error-color)}
+      .valve-actions{margin-top:16px}
+      .valve-toggle{appearance:none;width:42px;min-height:24px;padding:0;border-radius:20px;vertical-align:middle;cursor:pointer;background:var(--divider-color)}
+      .valve-toggle:before{content:'';display:block;width:18px;height:18px;margin:2px;background:white;border-radius:50%}
+      .valve-toggle:checked{background:var(--primary-color)}.valve-toggle:checked:before{margin-left:20px}
+      [data-valve-status]:empty{display:none}
+      @media(max-width:650px){.global-layout{grid-template-columns:1fr}.global-nav{flex-direction:row}.valve-stats>div{padding:7px}}
+    </style>
+    <div class="global-heading"><div><small>Gilt für alle Räume</small><h2>Globale Einstellungen</h2></div></div>
+    <div class="global-layout"><nav class="global-nav" aria-label="Globale Einstellungen">
+      <button class="reset" data-global-nav="valve">Stellantrieb</button>
+      <button class="reset" data-global-nav="meter">Wärmezähler</button>
+    </nav><div>
+      <section class="section" data-global-section="valve">
+        <div class="valve-head"><div><h2>Zentraler KNX-Stellantrieb</h2><small>Ventilstellung über den Tag</small></div>
+          <label>HM-Zeitplan <input form="valve-plan" class="valve-toggle" role="switch" type="checkbox" name="enabled" disabled></label>
+        </div>
+        <div class="valve-stats">
+          <div><small>Stellung jetzt</small><strong data-valve-position></strong><progress data-valve-progress max="100" style="width:100%"></progress></div>
+          <div><small>Aktive Phase</small><strong data-valve-phase>—</strong></div>
+          <div><small>Sommermodus</small><strong data-valve-summer></strong><input data-summer-toggle class="valve-toggle" role="switch" type="checkbox" aria-label="Sommermodus"></div>
+        </div>
+        <p data-valve-status class="notice" role="status">Zeitplan wird geladen …</p>
+        <form id="valve-plan" data-valve-form hidden>
+          <div class="valve-head"><h2>Tagesverlauf</h2><small>┄ Aktuell · ▪ Entwurf</small></div>
+          <div data-valve-chart></div>
+          <h2>Phasen im Entwurf</h2>
+          <div data-valve-rows></div>
+          <button type="button" class="reset" data-valve-add>＋ Phase hinzufügen</button>
+          <div class="valve-actions"><small data-valve-dirty></small><div>
+            <button type="button" class="reset" data-valve-reset>Verwerfen</button>
+            <button type="submit" class="save">Als Plan speichern</button>
+          </div></div>
         </form>
         <button type="button" class="save" data-valve-import hidden>„Nachtabsenkung Haus“ übernehmen</button>
         <button type="button" class="reset" data-valve-defaults hidden>Vier Standardphasen übernehmen</button>
       </section>
-      <section class="section"><h2>Wärmezähler Haus</h2>
-        <button type="button" class="reset" data-january-reading>Zählerstand vom 1. Januar bearbeiten</button>
-        <p role="status"></p>
-      </section>`;
+      <section class="section" data-global-section="meter">
+        <div class="valve-head"><h2>Wärmezähler Haus</h2><button type="button" class="reset" data-january-reading>✎ Startwert ändern</button></div>
+        <div class="valve-stats">
+          <div><small>Stand 1. Januar</small><strong data-meter-january>—</strong></div>
+          <div><small>Stand jetzt · geschätzt</small><strong data-meter-current>—</strong></div>
+          <div><small>Verbrauch dieses Jahr · geschätzt</small><strong data-meter-year>—</strong></div>
+        </div>
+        <p data-meter-feedback role="status"></p>
+      </section></div></div>`;
     const button=content.querySelector('[data-valve-import]');
     const defaults=content.querySelector('[data-valve-defaults]');
     const status=content.querySelector('[data-valve-status]');
-    const slots=content.querySelector('[data-valve-slots]');
     const form=content.querySelector('[data-valve-form]');
     const save=form.querySelector('[type=submit]');
-    this.updateValveReadings();
-    const loadValve=async (takeOver,useDefaults=false,configuration={})=>{
-      button.disabled=defaults.disabled=save.disabled=form.elements.enabled.disabled=true;
+    const toggle=content.querySelector('[name=enabled]');
+    const rows=content.querySelector('[data-valve-rows]');
+    const chart=content.querySelector('[data-valve-chart]');
+    const dirty=content.querySelector('[data-valve-dirty]');
+    const reset=content.querySelector('[data-valve-reset]');
+    const add=content.querySelector('[data-valve-add]');
+    const colors=['#9b9a93','#f6a62b','#df6238','#388edc','#71b9a0','#ac8bd4'];
+    const minute=value=>Number(value.slice(0,2))*60+Number(value.slice(3,5));
+    const clock=value=>`${String(Math.floor(value/60)).padStart(2,'0')}:${String(value%60).padStart(2,'0')}`;
+    let plan=null, draft=[], baseline=[], active=false, busy=false, normalized=false;
+    const currentMinute=()=>{
+      const zone=this._hass.config?.time_zone||'Europe/Berlin';
+      return minute(new Date().toLocaleTimeString('en-GB',{timeZone:zone,hour:'2-digit',minute:'2-digit'}));
+    };
+    const feedback=()=>{
+      status.textContent=!plan?'Der Scheduler steuert nach „Nachtabsenkung Haus“.'
+        :plan.enabled===false?'HM-Zeitplan ausgeschaltet'
+        :active?'':'Alter Scheduler steuert noch. Der HM-Zeitplan ist pausiert.';
+      toggle.checked=Boolean(plan&&plan.enabled!==false);
+    };
+    const preview=()=>{
+      const now=currentMinute();
+      const saved=plan?.slots||[];
+      const phase=active?saved.find(slot=>{
+        const start=minute(slot.start), stop=minute(slot.stop);
+        return start<stop?start<=now&&now<stop:now>=start||now<stop;
+      }):null;
+      content.querySelector('[data-valve-phase]').textContent=phase
+        ? `${phase.value} % · seit ${phase.start.slice(0,5)}`:'—';
+      const changed=normalized||JSON.stringify(draft)!==JSON.stringify(baseline);
+      const valid=draft.map((phase,i)=>/^\d{2}:\d{2}$/.test(phase.start)
+        &&(i===0?phase.start==='00:00':minute(phase.start)>minute(draft[i-1].start))
+        &&Number.isFinite(phase.value)&&phase.value>=0&&phase.value<=100);
+      rows.querySelectorAll('.valve-row').forEach((row,i)=>{
+        row.querySelector('small').textContent=valid[i]?'':'Startzeiten müssen eindeutig und aufsteigend sein. Stellung 0–100 %.';
+        row.querySelector('input[type=time]').setAttribute('aria-invalid',String(!valid[i]));
+      });
+      save.disabled=busy||!changed||valid.includes(false);
+      reset.disabled=busy||!changed;
+      add.disabled=busy||draft.length>=96;
+      dirty.textContent=changed?'Entwurf weicht vom aktuellen Plan ab':'Entwurf entspricht dem aktuellen Plan';
+      const max=Math.max(10,Math.ceil(Math.max(0,...saved.map(p=>p.value),...draft.map(p=>p.value))/10)*10);
+      const x=t=>36+t/1440*664, y=v=>146-v/max*120;
+      const line=(start,stop,value,color,dashed=false)=>{
+        const end=stop<start?1440:stop;
+        const left=x(start),right=x(end),height=y(value);
+        return `${dashed?'':`<rect x="${left}" y="${height}" width="${Math.max(0,right-left)}" height="${146-height}" fill="${color}" opacity=".2"/>`}
+          <path d="M${left} ${height}H${right}" stroke="${color}" stroke-width="2" ${dashed?'stroke-dasharray="5 4"':''}/>
+          ${dashed?'':`<text x="${(left+right)/2}" y="${height-5}" text-anchor="middle">${value} %</text>`}`;
+      };
+      chart.innerHTML=`<svg class="valve-chart" viewBox="0 0 720 174" role="img" aria-label="Ventilstellung über 24 Stunden" fill="currentColor" font-size="12">
+        ${[0,max/2,max].map(v=>`<path d="M36 ${y(v)}H700" stroke="var(--divider-color)"/><text x="4" y="${y(v)+4}">${v}</text>`).join('')}
+        ${[0,360,720,1080,1440].map(t=>`<text x="${x(t)}" y="165" text-anchor="middle">${clock(t)}</text>`).join('')}
+        ${draft.map((p,i)=>valid[i]&&(!draft[i+1]||valid[i+1])?line(minute(p.start),draft[i+1]?minute(draft[i+1].start):1440,p.value,colors[i%colors.length]):'').join('')}
+        ${saved.map(p=>line(minute(p.start),minute(p.stop),p.value,'currentColor',true)).join('')}
+        <path d="M${x(now)} 19V146" stroke="currentColor"/><text x="${x(now)}" y="14" text-anchor="middle">jetzt</text>
+      </svg>`;
+    };
+    const renderRows=()=>{
+      rows.innerHTML=draft.map((phase,i)=>{
+        const color=colors[i%colors.length];
+        return `<div class="valve-row" style="--phase:${color}">
+          <i style="background:${color}"></i>
+          <input type="time" value="${escapeHTML(phase.start)}" aria-label="Start Phase ${i+1}" ${i===0?'readonly':''}>
+          <input type="range" min="0" max="100" step="0.1" value="${phase.value}" aria-label="Ventilstellung Phase ${i+1}">
+          <output>${phase.value} %</output>
+          ${i===0?'<span></span>':`<button type="button" class="reset" aria-label="Phase ${i+1} löschen"><ha-icon icon="mdi:delete-outline"></ha-icon></button>`}
+          <small></small></div>`;
+      }).join('');
+      rows.querySelectorAll('.valve-row').forEach((row,i)=>{
+        const start=row.querySelector('[type=time]'), slider=row.querySelector('[type=range]');
+        start.oninput=()=>{draft[i].start=start.value;preview();};
+        slider.oninput=()=>{
+          draft[i].value=slider.valueAsNumber;
+          row.querySelector('output').textContent=`${slider.value} %`;
+          preview();
+        };
+        const remove=row.querySelector('button');
+        if(remove)remove.onclick=()=>{draft.splice(i,1);renderRows();};
+      });
+      preview();
+    };
+    const loadValve=async (configuration={},reloadDraft=true)=>{
+      busy=true;
+      button.disabled=defaults.disabled=toggle.disabled=save.disabled=true;
       try {
-        const {plan,active}=await this._hass.callWS({
-          type:'heizungsmanager/central_valve',take_over:takeOver,use_defaults:useDefaults,...configuration,
-        });
-        status.textContent=plan
-          ? (active?'Heizungsmanager steuert nach Tagesplan':plan.enabled===false?'HM-Zeitplan ausgeschaltet':'HM-Zeitplan pausiert wegen des alten Schedulers')
-          : 'Der Scheduler steuert nach „Nachtabsenkung Haus“.';
-        slots.replaceChildren(...(plan?.slots||[]).map(slot=>{
-          const item=document.createElement('li');
-          item.textContent=`${slot.start.slice(0,5)}–${slot.stop.slice(0,5)} · ${slot.value} %`;
-          return item;
-        }));
+        ({plan,active}=await this._hass.callWS({type:'heizungsmanager/central_valve',...configuration}));
+        feedback();
         form.hidden=!plan;
-        if(plan){
-          form.elements.enabled.checked=plan.enabled!==false;
-          const starts=plan.slots.map(slot=>slot.start.slice(0,5));
-          const editable=starts.length===4&&starts[0]==='00:00'&&new Set(starts).size===4;
-          const phases=editable?plan.slots:[
-            {start:'00:00',value:0},{start:'06:00',value:15},
-            {start:'09:00',value:12},{start:'22:00',value:4},
-          ];
-          phases.forEach((phase,i)=>{
-            form.elements['start'+i].value=phase.start.slice(0,5);
-            form.elements['value'+i].value=phase.value;
-          });
-          if(!editable)status.textContent+=' · Vier Standardphasen als Entwurf. Speichern ersetzt den angezeigten Plan.';
-        }
         button.hidden=defaults.hidden=Boolean(plan);
+        if(plan&&reloadDraft){
+          baseline=plan.slots.map(slot=>({start:slot.start.slice(0,5),value:slot.value}));
+          draft=baseline.map(phase=>({...phase})).sort((a,b)=>a.start.localeCompare(b.start));
+          if(draft[0]?.start!=='00:00')draft.unshift({start:'00:00',value:draft.at(-1)?.value??0});
+          normalized=draft.length!==plan.slots.length||draft.some((phase,i)=>
+            (draft[i+1]?.start??'24:00')!==plan.slots[i]?.stop.slice(0,5));
+          baseline=draft.map(phase=>({...phase}));
+          renderRows();
+        }
       } catch(error) {
+        feedback();
         status.textContent=error?.message||'Der Zeitplan konnte nicht geladen werden.';
       } finally {
-        button.disabled=defaults.disabled=save.disabled=form.elements.enabled.disabled=false;
+        busy=false;
+        button.disabled=defaults.disabled=false;
+        toggle.disabled=!plan;
+        if(plan)preview();
       }
     };
-    button.onclick=()=>loadValve(true);
-    defaults.onclick=()=>{
-      if(window.confirm('Standardplan aktivieren? 00:00 → 0 %, 06:00 → 15 %, 09:00 → 12 %, 22:00 → 4 %.'))
-        void loadValve(true,true);
+    button.onclick=()=>loadValve({take_over:true});
+    defaults.onclick=()=>loadValve({take_over:true,use_defaults:true});
+    toggle.onchange=()=>loadValve({enabled:toggle.checked},false);
+    form.onsubmit=event=>{event.preventDefault();void loadValve({enabled:toggle.checked,phases:draft});};
+    reset.onclick=()=>{draft=baseline.map(phase=>({...phase}));renderRows();};
+    add.onclick=()=>{
+      const latest=minute(draft.at(-1).start);
+      const next=Math.min(1439,Math.floor(latest/15)*15+15);
+      if(Number.isFinite(next)&&next>latest)draft.push({start:clock(next),value:draft.at(-1).value});
+      else {
+        const index=draft.findIndex((p,i)=>i>0&&minute(p.start)-minute(draft[i-1].start)>1);
+        if(index>0)draft.splice(index,0,{start:clock(minute(draft[index-1].start)+1),value:draft[index-1].value});
+      }
+      renderRows();
     };
-    form.elements.enabled.onchange=async()=>{
-      const toggle=form.elements.enabled;
-      toggle.disabled=save.disabled=true;
+    content.querySelectorAll('[data-global-nav]').forEach(nav=>{
+      nav.onclick=()=>content.querySelector(`[data-global-section="${nav.dataset.globalNav}"]`).scrollIntoView({block:'start'});
+    });
+    const summer=content.querySelector('[data-summer-toggle]');
+    summer.onchange=async()=>{
+      summer.disabled=true;
       try {
-        const {plan,active}=await this._hass.callWS({
-          type:'heizungsmanager/central_valve',enabled:toggle.checked,
-        });
-        status.textContent=active?'Heizungsmanager steuert nach Tagesplan'
-          :plan.enabled?'HM-Zeitplan pausiert wegen des alten Schedulers':'HM-Zeitplan ausgeschaltet';
-      } catch(error) {
-        toggle.checked=!toggle.checked;
-        status.textContent=error?.message||'Zeitplan konnte nicht umgeschaltet werden.';
-      } finally {
-        toggle.disabled=save.disabled=false;
+        await this._hass.callService('switch',summer.checked?'turn_on':'turn_off',{entity_id:'switch.stellantrieb_sommermodus'});
+      }catch(error){
+        status.textContent=error?.message||'Sommermodus konnte nicht umgeschaltet werden.';
+      }finally{this.updateValveReadings();}
+    };
+    this.updateValveReadings();
+    void loadValve();
+    const loadMeter=async()=>{
+      const meter=await this._hass.callWS({type:'heizungsmanager/house_heat'});
+      this._houseHeat=meter;
+      for(const [field,value] of Object.entries({january:meter.january_kwh,current:meter.total_kwh,year:meter.year_kwh})){
+        content.querySelector(`[data-meter-${field}]`).textContent=Number.isFinite(value)
+          ? value.toLocaleString('de-DE',{maximumFractionDigits:2})+' kWh':'—';
       }
     };
-    form.onsubmit=event=>{
-      event.preventDefault();
-      const phases=[0,1,2,3].map(i=>({
-        start:form.elements['start'+i].value,
-        value:form.elements['value'+i].valueAsNumber,
-      }));
-      void loadValve(false,false,{enabled:form.elements.enabled.checked,phases});
+    this._loadGlobalMeter=loadMeter;
+    const meterError=error=>{
+      content.querySelector('[data-meter-feedback]').textContent=error?.message||'Wärmezähler konnte nicht geladen werden';
     };
-    void loadValve(false);
+    void loadMeter().catch(meterError);
     content.querySelector('[data-january-reading]').onclick=async()=>{
       try {
-        this._houseHeat=await this._hass.callWS({type:'heizungsmanager/house_heat'});
+        await loadMeter();
         if(this.tab==='global')this.openMeterReading(true);
-      }catch(error){
-        content.querySelector('section:last-child [role=status]').textContent=error?.message||'Wärmezähler konnte nicht geladen werden';
-      }
+      }catch(error){meterError(error);}
     };
   }
   updateValveReadings() {
@@ -292,6 +411,11 @@ class HeizungsmanagerPanel extends HTMLElement {
       ? `${actuator.state} ${actuator.attributes.unit_of_measurement||''}`.trim()
       : 'Nicht verfügbar';
     const summer=this._hass.states['switch.stellantrieb_sommermodus']?.state;
+    const progress=this.shadowRoot.querySelector('[data-valve-progress]');
+    progress.value=Number(actuator?.state)||0;
+    const toggle=this.shadowRoot.querySelector('[data-summer-toggle]');
+    toggle.disabled=!['on','off'].includes(summer);
+    toggle.checked=summer==='on';
     this.shadowRoot.querySelector('[data-valve-summer]').textContent=
       summer==='on'?'Ein':summer==='off'?'Aus':'Nicht verfügbar';
   }
@@ -312,7 +436,8 @@ class HeizungsmanagerPanel extends HTMLElement {
         this._houseHeat=await this._hass.callWS({type:'heizungsmanager/house_heat',...(global?{january_kwh:value,year:meter.year}:{reading_kwh:value})});
         this._houseHeatFetched=Date.now();
         dialog.close();
-        this.updateOverview();
+        if(global&&this.tab==='global')await this._loadGlobalMeter?.();
+        else this.updateOverview();
       }catch(error){
         form.querySelector('[role=alert]').textContent=error?.message||'Ablesung konnte nicht gespeichert werden';
         save.disabled=false;

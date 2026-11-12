@@ -111,8 +111,8 @@ class CentralValve:
             actuator = self.hass.states.get(ACTUATOR)
             if actuator is None:
                 raise ValueError("Der KNX-Stellantrieb fehlt.")
-            if len(phases) != 4 or phases[0]["start"] != "00:00":
-                raise ValueError("Vier Phasen mit Beginn um 00:00 sind erforderlich.")
+            if not 1 <= len(phases) <= 96 or phases[0]["start"] != "00:00":
+                raise ValueError("Der Plan braucht 1 bis 96 Phasen mit Beginn um 00:00.")
             starts = [phase["start"] for phase in phases]
             if any(time.fromisoformat(start).isoformat(timespec="minutes") != start for start in starts):
                 raise ValueError("Ungültige Startzeit.")
