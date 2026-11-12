@@ -71,6 +71,7 @@ class HeizungsmanagerPanel extends HTMLElement {
     if(card) card.hass=value;
     this.maybeLoad();
     if(this._loaded&&this.tab==='home')this.updateOverview();
+    if(this.tab==='global')this.updateValveReadings();
     else if(this._loaded&&this.tab==='plan'&&this.settings.config.room_id==='schlafzimmer'&&!this.settings.config.radiators&&!this.settings.config.heat_pump)this.render();
   }
   connectedCallback() { this.maybeLoad(); }
@@ -181,16 +182,19 @@ class HeizungsmanagerPanel extends HTMLElement {
     this.render();
   }
   renderGlobalSettings(content) {
-    const actuatorId='number.wz_stellantrieb';
-    const actuator=this._hass.states[actuatorId];
-    const available=actuator&&!['unknown','unavailable'].includes(actuator.state);
-    const position=available?`${actuator.state} ${actuator.attributes.unit_of_measurement||''}`.trim():'Nicht verfügbar';
     content.innerHTML=`<h2>Globale Einstellungen</h2>
       <section class="section"><h2>Zentraler KNX-Stellantrieb</h2>
-        <p>Aktuelle Stellung <strong>${escapeHTML(position)}</strong></p>
-        <small>${actuatorId}</small>
+        <p>Aktuelle Stellung <strong data-valve-position></strong> · Sommermodus <strong data-valve-summer></strong></p>
         <p data-valve-status role="status">Zeitplan wird geladen …</p>
         <ul data-valve-slots></ul>
+        <form data-valve-form hidden>
+          <label><input type="checkbox" name="enabled" style="width:auto;min-height:0"> HM-Zeitplan aktiv</label>
+          <div class="fields">${[0,1,2,3].map(i=>`<fieldset class="phase-row"><legend>Phase ${i+1}</legend>
+            <label>Ab <input type="time" name="start${i}" required ${i===0?'readonly':''}></label>
+            <label>Ventilstellung (%) <input type="number" name="value${i}" min="0" max="100" step="any" required></label>
+          </fieldset>`).join('')}</div>
+          <button type="submit" class="save">Zeitplan speichern</button>
+        </form>
         <button type="button" class="save" data-valve-import hidden>„Nachtabsenkung Haus“ übernehmen</button>
         <button type="button" class="reset" data-valve-defaults hidden>Vier Standardphasen übernehmen</button>
       </section>
@@ -202,25 +206,43 @@ class HeizungsmanagerPanel extends HTMLElement {
     const defaults=content.querySelector('[data-valve-defaults]');
     const status=content.querySelector('[data-valve-status]');
     const slots=content.querySelector('[data-valve-slots]');
-    const loadValve=async (takeOver,useDefaults=false)=>{
-      button.disabled=defaults.disabled=true;
+    const form=content.querySelector('[data-valve-form]');
+    const save=form.querySelector('[type=submit]');
+    this.updateValveReadings();
+    const loadValve=async (takeOver,useDefaults=false,configuration={})=>{
+      button.disabled=defaults.disabled=save.disabled=form.elements.enabled.disabled=true;
       try {
         const {plan,active}=await this._hass.callWS({
-          type:'heizungsmanager/central_valve',take_over:takeOver,use_defaults:useDefaults,
+          type:'heizungsmanager/central_valve',take_over:takeOver,use_defaults:useDefaults,...configuration,
         });
         status.textContent=plan
-          ? (active?'Heizungsmanager steuert nach Tagesplan':'Heizungsmanager pausiert, solange der Scheduler aktiv oder nicht verfügbar ist')
+          ? (active?'Heizungsmanager steuert nach Tagesplan':plan.enabled===false?'HM-Zeitplan ausgeschaltet':'HM-Zeitplan pausiert wegen des alten Schedulers')
           : 'Der Scheduler steuert nach „Nachtabsenkung Haus“.';
         slots.replaceChildren(...(plan?.slots||[]).map(slot=>{
           const item=document.createElement('li');
           item.textContent=`${slot.start.slice(0,5)}–${slot.stop.slice(0,5)} · ${slot.value} %`;
           return item;
         }));
+        form.hidden=!plan;
+        if(plan){
+          form.elements.enabled.checked=plan.enabled!==false;
+          const starts=plan.slots.map(slot=>slot.start.slice(0,5));
+          const editable=starts.length===4&&starts[0]==='00:00'&&new Set(starts).size===4;
+          const phases=editable?plan.slots:[
+            {start:'00:00',value:0},{start:'06:00',value:15},
+            {start:'09:00',value:12},{start:'22:00',value:4},
+          ];
+          phases.forEach((phase,i)=>{
+            form.elements['start'+i].value=phase.start.slice(0,5);
+            form.elements['value'+i].value=phase.value;
+          });
+          if(!editable)status.textContent+=' · Vier Standardphasen als Entwurf. Speichern ersetzt den angezeigten Plan.';
+        }
         button.hidden=defaults.hidden=Boolean(plan);
       } catch(error) {
         status.textContent=error?.message||'Der Zeitplan konnte nicht geladen werden.';
       } finally {
-        button.disabled=defaults.disabled=false;
+        button.disabled=defaults.disabled=save.disabled=form.elements.enabled.disabled=false;
       }
     };
     button.onclick=()=>loadValve(true);
@@ -228,15 +250,50 @@ class HeizungsmanagerPanel extends HTMLElement {
       if(window.confirm('Standardplan aktivieren? 00:00 → 0 %, 06:00 → 15 %, 09:00 → 12 %, 22:00 → 4 %.'))
         void loadValve(true,true);
     };
+    form.elements.enabled.onchange=async()=>{
+      const toggle=form.elements.enabled;
+      toggle.disabled=save.disabled=true;
+      try {
+        const {plan,active}=await this._hass.callWS({
+          type:'heizungsmanager/central_valve',enabled:toggle.checked,
+        });
+        status.textContent=active?'Heizungsmanager steuert nach Tagesplan'
+          :plan.enabled?'HM-Zeitplan pausiert wegen des alten Schedulers':'HM-Zeitplan ausgeschaltet';
+      } catch(error) {
+        toggle.checked=!toggle.checked;
+        status.textContent=error?.message||'Zeitplan konnte nicht umgeschaltet werden.';
+      } finally {
+        toggle.disabled=save.disabled=false;
+      }
+    };
+    form.onsubmit=event=>{
+      event.preventDefault();
+      const phases=[0,1,2,3].map(i=>({
+        start:form.elements['start'+i].value,
+        value:form.elements['value'+i].valueAsNumber,
+      }));
+      void loadValve(false,false,{enabled:form.elements.enabled.checked,phases});
+    };
     void loadValve(false);
     content.querySelector('[data-january-reading]').onclick=async()=>{
       try {
         this._houseHeat=await this._hass.callWS({type:'heizungsmanager/house_heat'});
         if(this.tab==='global')this.openMeterReading(true);
       }catch(error){
-        content.querySelector('[role=status]').textContent=error?.message||'Wärmezähler konnte nicht geladen werden';
+        content.querySelector('section:last-child [role=status]').textContent=error?.message||'Wärmezähler konnte nicht geladen werden';
       }
     };
+  }
+  updateValveReadings() {
+    const position=this.shadowRoot.querySelector('[data-valve-position]');
+    if(!position)return;
+    const actuator=this._hass.states['number.wz_stellantrieb'];
+    position.textContent=actuator&&!['unknown','unavailable'].includes(actuator.state)
+      ? `${actuator.state} ${actuator.attributes.unit_of_measurement||''}`.trim()
+      : 'Nicht verfügbar';
+    const summer=this._hass.states['switch.stellantrieb_sommermodus']?.state;
+    this.shadowRoot.querySelector('[data-valve-summer]').textContent=
+      summer==='on'?'Ein':summer==='off'?'Aus':'Nicht verfügbar';
   }
   openMeterReading(global=false) {
     const dialog=document.createElement('dialog');

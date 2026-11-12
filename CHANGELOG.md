@@ -1,3 +1,7 @@
+## 0.3.38
+
+- Vier editierbare KNX-Phasen, Ein-/Ausschalter für den HM-Zeitplan und Live-Anzeige des Sommermodus.
+
 ## 0.3.37
 
 - Globale Einstellungen mit zentralem KNX-Stellantrieb. Der Heizungsmanager kann den vorhandenen Scheduler-Plan oder vier Standardphasen übernehmen.

@@ -60,7 +60,7 @@ class CentralValve:
 
     async def async_take_over(self, use_defaults=False):
         async with self.lock:
-            if self.plan:
+            if self.plan and self.plan.get("source"):
                 return
             actuator = self.hass.states.get(ACTUATOR)
             if not actuator or actuator.state in ("unavailable", "unknown"):
@@ -92,13 +92,50 @@ class CentralValve:
                 raise
             self.plan = plan
 
+    def is_active(self):
+        if not self.plan or not self.plan.get("enabled", True):
+            return False
+        source = self.hass.states.get(self.plan.get("source", ""))
+        return source is None or source.state == "off"
+
+    async def async_set_enabled(self, enabled):
+        async with self.lock:
+            if self.plan is None:
+                raise ValueError("Kein HM-Zeitplan vorhanden.")
+            plan = {**self.plan, "enabled": enabled}
+            await self.store.async_save(plan)
+            self.plan = plan
+
+    async def async_configure(self, phases, enabled):
+        async with self.lock:
+            actuator = self.hass.states.get(ACTUATOR)
+            if actuator is None:
+                raise ValueError("Der KNX-Stellantrieb fehlt.")
+            if len(phases) != 4 or phases[0]["start"] != "00:00":
+                raise ValueError("Vier Phasen mit Beginn um 00:00 sind erforderlich.")
+            starts = [phase["start"] for phase in phases]
+            if any(time.fromisoformat(start).isoformat(timespec="minutes") != start for start in starts):
+                raise ValueError("Ungültige Startzeit.")
+            if starts != sorted(set(starts)):
+                raise ValueError("Die Startzeiten müssen aufsteigend und eindeutig sein.")
+            slots = []
+            for phase, stop in zip(phases, starts[1:] + ["24:00"]):
+                value = float(phase["value"])
+                if not actuator.attributes["min"] <= value <= actuator.attributes["max"]:
+                    raise ValueError("Ventilstellung außerhalb des Gerätebereichs.")
+                slots.append({"start": phase["start"], "stop": stop, "value": value})
+            if self.plan is None:
+                raise ValueError("Bitte zuerst den vorhandenen Scheduler übernehmen oder die Standardphasen aktivieren.")
+            plan = {**(self.plan or {}), "enabled": enabled, "slots": slots}
+            await self.store.async_save(plan)
+            self.plan = plan
+
     async def async_tick(self, _now=None):
         async with self.lock:
-            if not self.plan or not self.hass.is_running:
+            if not self.is_active() or not self.hass.is_running:
                 return
-            source = self.hass.states.get(self.plan["source"])
             actuator = self.hass.states.get(ACTUATOR)
-            if not source or source.state != "off" or not actuator:
+            if not actuator:
                 return
             try:
                 actual = float(actuator.state)

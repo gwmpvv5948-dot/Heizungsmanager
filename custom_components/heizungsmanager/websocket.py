@@ -164,7 +164,9 @@ async def house_heat_status(hass, connection, msg):
 
 @websocket_api.websocket_command({vol.Required("type"): "heizungsmanager/central_valve",
     vol.Optional("take_over", default=False): bool,
-    vol.Optional("use_defaults", default=False): bool})
+    vol.Optional("use_defaults", default=False): bool,
+    vol.Optional("enabled"): bool,
+    vol.Optional("phases"): [{vol.Required("start"): str, vol.Required("value"): vol.Coerce(float)}]})
 @websocket_api.async_response
 async def central_valve_status(hass, connection, msg):
     if connection.user is None or not connection.user.is_admin:
@@ -175,7 +177,12 @@ async def central_valve_status(hass, connection, msg):
         if msg["take_over"]:
             await valve.async_take_over(msg["use_defaults"])
             await valve.async_tick()
-        source = hass.states.get(valve.plan["source"]) if valve.plan else None
-        connection.send_result(msg["id"], {"plan": valve.plan, "active": bool(source and source.state == "off")})
+        if "phases" in msg:
+            await valve.async_configure(msg["phases"], msg.get("enabled", True))
+            await valve.async_tick()
+        elif "enabled" in msg:
+            await valve.async_set_enabled(msg["enabled"])
+            await valve.async_tick()
+        connection.send_result(msg["id"], {"plan": valve.plan, "active": valve.is_active()})
     except Exception as err:
         connection.send_error(msg["id"], "central_valve_error", str(err))
