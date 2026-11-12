@@ -657,7 +657,12 @@ class HeatingCoordinator(DataUpdateCoordinator):
                 elif not window_open and self.manual_until is None and row:
                     # Remove radiator demand before handing over to the heat pump.
                     manual_radiator = bool(self.override and self.override.get("source") and row["sources"] in ("both", "radiators"))
-                    await self.command("radiators", "heat" if row["radiators"] or manual_radiator else "off", row["target"])
+                    radiator_thermostats_enabled = (
+                        row["radiators"] or manual_radiator
+                        or row["sources"] == "radiators"
+                        or (row["sources"] == "both" and not row["heat_pump"])
+                    )
+                    await self.command("radiators", "heat" if radiator_thermostats_enabled else "off", row["target"])
                     await self.command("heat_pump", "heat" if row["heat_pump"] else "off", row["control_target"])
             except Exception as err:
                 self.error = str(err)

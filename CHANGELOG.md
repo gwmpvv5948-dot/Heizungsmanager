@@ -1,3 +1,7 @@
+## 0.3.36
+
+- Heizkörper behalten beim Ruhen den Sollwert, wenn der Fahrplan sie freigibt. Der Vorrang der Midea und die Fensterpause bleiben aktiv.
+
 ## 0.3.35
 
 - Strom heute weist den Midea-Tagesverbrauch aus und berücksichtigt den Tageswechsel bei den Stundenbalken.
