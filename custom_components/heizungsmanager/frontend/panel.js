@@ -117,23 +117,27 @@ class HeizungsmanagerPanel extends HTMLElement {
     catch{if(this._houseHeat)this._houseHeat={...this._houseHeat,incomplete:true,note:'Haus-Zähler derzeit nicht aktualisiert'};}
     finally{this._houseHeatLoading=false;if(this.isConnected&&this.tab==='home')this.updateOverview();}
   }
-  updateOverview() {
+  updateOverview({interactive=false}={}) {
     const content=this.shadowRoot.querySelector('#content');
     if(!content||this.tab!=='home')return;
     this.refreshRadiatorHistory();
     this.refreshHouseHeat();
+    // Keep the focused controls and blue frame mounted during live updates.
+    if(!interactive&&content.querySelector(".room-tile.quick-editing"))return;
     const zone=this._hass.config?.time_zone||'Europe/Berlin';
     const meter=houseHeatView(this._houseHeat||{},zone,content.querySelector('.meter-details')?.open,content.querySelector('.meter-usage')?.open);
     this._quickDrafts??=new Map();
     this._quickBusy??=new Set();
     this._quickErrors??=new Map();
     const html=overviewHTML(this._hass.states,this.homeFilter||'all',Date.now(),this._radiatorHistory||{},zone,meter,{enabled:this._hass.user?.is_admin,drafts:this._quickDrafts,busy:this._quickBusy,errors:this._quickErrors});
-    if(content.innerHTML===html)return;
+    if(this._overviewContent===content&&this._overviewHTML===html)return;
+    this._overviewContent=content;
+    this._overviewHTML=html;
     const chartScroll=content.querySelector('.meter-bars')?.scrollLeft;
     content.innerHTML=html;
     if(chartScroll)content.querySelector('.meter-bars').scrollLeft=chartScroll;
     content.querySelector('.meter-read').onclick=()=>this.openMeterReading();
-    content.querySelectorAll('[data-home-filter]').forEach(button=>button.onclick=()=>{this.homeFilter=button.dataset.homeFilter;this.updateOverview();});
+    content.querySelectorAll('[data-home-filter]').forEach(button=>button.onclick=()=>{this.homeFilter=button.dataset.homeFilter;this.updateOverview({interactive:true});});
     content.querySelectorAll('[data-quick],[data-duration]').forEach(button=>{
       button.onclick=()=>this.changeRoomTarget(button);
     });
@@ -157,7 +161,7 @@ class HeizungsmanagerPanel extends HTMLElement {
       this._quickDrafts.delete(entry);
     }else if((action==='set'&&draft)||action==='clear'){
       this._quickBusy.add(entry);
-      this.updateOverview();
+      this.updateOverview({interactive:true});
       try{
         const args=action==='set'?draft:{};
         await this._hass.callWS({type:'heizungsmanager/override',entry_id:entry,action,...args});
@@ -168,15 +172,71 @@ class HeizungsmanagerPanel extends HTMLElement {
         this._quickBusy.delete(entry);
       }
     }
-    this.updateOverview();
+    this.updateOverview({interactive:true});
   }
-  async openGlobalHeatSettings() {
-    try {
-      this._houseHeat=await this._hass.callWS({type:'heizungsmanager/house_heat'});
-      this.openMeterReading(true);
-    } catch(error) {
-      this.shadowRoot.querySelector('.global-heat-feedback').textContent=error?.message||'Globale Einstellungen konnten nicht geladen werden';
-    }
+  openGlobalHeatSettings() {
+    if(this._dirty&&!window.confirm('Ungespeicherte Änderungen verwerfen?'))return;
+    this._dirty=false;
+    this.tab='global';
+    this.render();
+  }
+  renderGlobalSettings(content) {
+    const actuatorId='number.wz_stellantrieb';
+    const actuator=this._hass.states[actuatorId];
+    const available=actuator&&!['unknown','unavailable'].includes(actuator.state);
+    const position=available?`${actuator.state} ${actuator.attributes.unit_of_measurement||''}`.trim():'Nicht verfügbar';
+    content.innerHTML=`<h2>Globale Einstellungen</h2>
+      <section class="section"><h2>Zentraler KNX-Stellantrieb</h2>
+        <p>Aktuelle Stellung <strong>${escapeHTML(position)}</strong></p>
+        <small>${actuatorId}</small>
+        <p data-valve-status role="status">Zeitplan wird geladen …</p>
+        <ul data-valve-slots></ul>
+        <button type="button" class="save" data-valve-import hidden>„Nachtabsenkung Haus“ übernehmen</button>
+        <button type="button" class="reset" data-valve-defaults hidden>Vier Standardphasen übernehmen</button>
+      </section>
+      <section class="section"><h2>Wärmezähler Haus</h2>
+        <button type="button" class="reset" data-january-reading>Zählerstand vom 1. Januar bearbeiten</button>
+        <p role="status"></p>
+      </section>`;
+    const button=content.querySelector('[data-valve-import]');
+    const defaults=content.querySelector('[data-valve-defaults]');
+    const status=content.querySelector('[data-valve-status]');
+    const slots=content.querySelector('[data-valve-slots]');
+    const loadValve=async (takeOver,useDefaults=false)=>{
+      button.disabled=defaults.disabled=true;
+      try {
+        const {plan,active}=await this._hass.callWS({
+          type:'heizungsmanager/central_valve',take_over:takeOver,use_defaults:useDefaults,
+        });
+        status.textContent=plan
+          ? (active?'Heizungsmanager steuert nach Tagesplan':'Heizungsmanager pausiert, solange der Scheduler aktiv oder nicht verfügbar ist')
+          : 'Der Scheduler steuert nach „Nachtabsenkung Haus“.';
+        slots.replaceChildren(...(plan?.slots||[]).map(slot=>{
+          const item=document.createElement('li');
+          item.textContent=`${slot.start.slice(0,5)}–${slot.stop.slice(0,5)} · ${slot.value} %`;
+          return item;
+        }));
+        button.hidden=defaults.hidden=Boolean(plan);
+      } catch(error) {
+        status.textContent=error?.message||'Der Zeitplan konnte nicht geladen werden.';
+      } finally {
+        button.disabled=defaults.disabled=false;
+      }
+    };
+    button.onclick=()=>loadValve(true);
+    defaults.onclick=()=>{
+      if(window.confirm('Standardplan aktivieren? 00:00 → 0 %, 06:00 → 15 %, 09:00 → 12 %, 22:00 → 4 %.'))
+        void loadValve(true,true);
+    };
+    void loadValve(false);
+    content.querySelector('[data-january-reading]').onclick=async()=>{
+      try {
+        this._houseHeat=await this._hass.callWS({type:'heizungsmanager/house_heat'});
+        if(this.tab==='global')this.openMeterReading(true);
+      }catch(error){
+        content.querySelector('[role=status]').textContent=error?.message||'Wärmezähler konnte nicht geladen werden';
+      }
+    };
   }
   openMeterReading(global=false) {
     const dialog=document.createElement('dialog');
@@ -224,7 +284,7 @@ class HeizungsmanagerPanel extends HTMLElement {
     if(!this._loaded) return;
     this.shadowRoot.innerHTML=`<style>
       :host{display:block;height:100%;color:var(--primary-text-color);background:var(--primary-background-color);font-family:var(--paper-font-body1_-_font-family,system-ui)}*{box-sizing:border-box}.shell{height:100%;overflow:auto}.toolbar{display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:2;min-height:64px;padding:10px 24px;background:var(--app-header-background-color,var(--card-background-color));border-bottom:1px solid var(--divider-color);color:var(--app-header-text-color,var(--primary-text-color))}.toolbar h1{font-size:20px;margin:0;font-weight:600}.version{font-size:12px;opacity:.6;margin-left:auto}.menu{padding:8px;border:0;font-size:24px;background:transparent;color:inherit;cursor:pointer}.tabs{display:flex;gap:8px;padding:18px 0}.tabs button{background:transparent;color:var(--secondary-text-color);border:0;border-bottom:3px solid transparent;padding:12px 16px;cursor:pointer;font-size:15px}.tabs button.active{color:var(--primary-color,#42bfa7);border-color:var(--primary-color,#42bfa7)}main{max-width:1140px;margin:auto;padding:0 24px 40px}.intro{font-size:13px;color:var(--secondary-text-color);line-height:1.6;margin:0 0 18px}.section{background:var(--ha-card-background,var(--card-background-color));border:1px solid var(--divider-color);border-radius:16px;padding:22px;margin-bottom:18px}h2{font-size:18px;margin:0 0 8px}.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;margin-top:20px}.phase-row{border:1px solid var(--divider-color);border-radius:12px;margin:18px 0 0;padding:14px;min-width:0}.phase-row legend{font-weight:650;padding:0 8px}.phase-fields{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:4px;gap:14px}.field{display:flex;flex-direction:column;gap:8px;min-width:0}label{font-size:14px;font-weight:550}input,select{width:100%;min-height:44px;border:1px solid var(--divider-color);border-radius:8px;padding:10px;background:var(--primary-background-color);color:var(--primary-text-color);font:inherit}small{font-size:12px;color:var(--secondary-text-color);line-height:1.5}.actions{position:sticky;bottom:0;padding:16px;background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}button.save{background:var(--primary-color,#42bfa7);color:var(--text-primary-color,#fff);border:0;border-radius:9px;padding:12px 22px;cursor:pointer;font-weight:600}button.reset{background:transparent;color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:9px;padding:11px 18px;cursor:pointer}button:disabled{opacity:.5;cursor:wait}.feedback{font-size:13px;line-height:1.5;flex:1;min-width:180px}.feedback.error{color:var(--error-color,#e86f6f)}.notice{background:#f4aa5819;border-left:3px solid #f4aa58;padding:14px;font-size:13px;line-height:1.6;border-radius:8px;margin-bottom:18px}.readonly{font-size:13px;line-height:1.8}.readonly strong{font-weight:550}.operation{margin-bottom:18px}.operation select{max-width:250px;margin-top:8px}.operation label{display:block}.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.operation:has(#room-select){display:inline-block;margin:10px 0 0 12px}.back-home[hidden],.operation[hidden]{display:none}#mode-message{font-size:12px;margin-top:8px} @media(max-width:650px){.phase-fields{grid-template-columns:1fr}main{padding:0 12px 24px}.toolbar{padding:10px 12px}.fields{grid-template-columns:1fr}.section{padding:17px}.tabs button{padding:10px 12px}.version{font-size:11px}}
-      ${overviewCSS}${quickOverviewCSS}${houseHeatCSS}</style><div class="shell"><header class="toolbar"><button class="menu" aria-label="Seitenleiste umschalten">☰</button><img src="/heizungsmanager-static/heizungsmanager-icon.png" alt="" width="32" height="32"><h1>Heizungsmanager</h1><button type="button" class="reset global-heat-settings">Globale Einstellungen</button><span class="global-heat-feedback" role="status"></span><span class="version">${escapeHTML(this.settings.config.room_name)} · v${escapeHTML(this.settings.version)}</span></header><main><button class="back-home" ${this.tab==='home'?'hidden':''}>‹ Übersicht</button><div class="operation" ${this.tab==='home'?'hidden':''}><label class="sr-only" for="room-select">Raum wechseln</label><select id="room-select">${(this.settings.rooms||[]).map(room=>`<option value="${escapeHTML(room.entry_id||'')}" ${room.entry_id===this.entryId?'selected':''} ${room.entry_id?'':'disabled'}>${escapeHTML(room.name)}${room.entry_id?'':' · noch nicht eingerichtet'}</option>`).join('')}</select></div><nav class="tabs" role="tablist" ${this.tab==='home'?'style="display:none"':''}><button role="tab" aria-selected="${this.tab==='plan'}" data-tab="plan" class="${this.tab==='plan'?'active':''}">Heiz-Fahrplan</button><button role="tab" aria-selected="${this.tab==='settings'}" data-tab="settings" class="${this.tab==='settings'?'active':''}">Einstellungen</button></nav><div id="content"></div></main></div>`;
+      ${overviewCSS}${quickOverviewCSS}${houseHeatCSS}</style><div class="shell"><header class="toolbar"><button class="menu" aria-label="Seitenleiste umschalten">☰</button><img src="/heizungsmanager-static/heizungsmanager-icon.png" alt="" width="32" height="32"><h1>Heizungsmanager</h1><button type="button" class="reset global-heat-settings">Globale Einstellungen</button><span class="global-heat-feedback" role="status"></span><span class="version">${escapeHTML(this.settings.config.room_name)} · v${escapeHTML(this.settings.version)}</span></header><main><button class="back-home" ${this.tab==='home'?'hidden':''}>‹ Übersicht</button><div class="operation" ${['home','global'].includes(this.tab)?'hidden':''}><label class="sr-only" for="room-select">Raum wechseln</label><select id="room-select">${(this.settings.rooms||[]).map(room=>`<option value="${escapeHTML(room.entry_id||'')}" ${room.entry_id===this.entryId?'selected':''} ${room.entry_id?'':'disabled'}>${escapeHTML(room.name)}${room.entry_id?'':' · noch nicht eingerichtet'}</option>`).join('')}</select></div><nav class="tabs" role="tablist" ${['home','global'].includes(this.tab)?'style="display:none"':''}><button role="tab" aria-selected="${this.tab==='plan'}" data-tab="plan" class="${this.tab==='plan'?'active':''}">Heiz-Fahrplan</button><button role="tab" aria-selected="${this.tab==='settings'}" data-tab="settings" class="${this.tab==='settings'?'active':''}">Einstellungen</button></nav><div id="content"></div></main></div>`;
     this.shadowRoot.querySelector('.global-heat-settings').onclick=()=>this.openGlobalHeatSettings();
     this.shadowRoot.querySelector('.back-home').onclick=()=>{if(this._dirty&&!window.confirm('Ungespeicherte Änderungen verwerfen?'))return;this.tab='home';this.render();};
     this.shadowRoot.querySelector('#room-select').addEventListener('change',async event=>{
@@ -238,6 +298,7 @@ class HeizungsmanagerPanel extends HTMLElement {
     const content=this.shadowRoot.querySelector('#content');
     if(this.settings.config.room_id==='schlafzimmer'&&!this.settings.config.radiators&&!this.settings.config.heat_pump)this.shadowRoot.querySelector('[data-tab="settings"]').hidden=true;
     if(this.tab==='home') {this.updateOverview();}
+    else if(this.tab==='global') this.renderGlobalSettings(content);
     else if(this.tab==='plan') {
       const temperatureOnly=this.settings.config.room_id==='schlafzimmer'&&!this.settings.config.radiators&&!this.settings.config.heat_pump;
       if(temperatureOnly){

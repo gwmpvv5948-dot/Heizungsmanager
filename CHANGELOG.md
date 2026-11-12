@@ -1,3 +1,7 @@
+## 0.3.37
+
+- Globale Einstellungen mit zentralem KNX-Stellantrieb. Der Heizungsmanager kann den vorhandenen Scheduler-Plan oder vier Standardphasen übernehmen.
+
 ## 0.3.36
 
 - Heizkörper behalten beim Ruhen den Sollwert, wenn der Fahrplan sie freigibt. Der Vorrang der Midea und die Fensterpause bleiben aktiv.

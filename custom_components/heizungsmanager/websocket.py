@@ -38,6 +38,7 @@ def async_register_api(hass):
     websocket_api.async_register_command(hass, save_config)
     websocket_api.async_register_command(hass, set_override)
     websocket_api.async_register_command(hass, house_heat_status)
+    websocket_api.async_register_command(hass, central_valve_status)
 
 
 @websocket_api.websocket_command({vol.Required("type"): "heizungsmanager/override",
@@ -160,3 +161,21 @@ async def house_heat_status(hass, connection, msg):
         connection.send_error(msg["id"], "invalid_reading", str(err))
         return
     connection.send_result(msg["id"], status)
+
+@websocket_api.websocket_command({vol.Required("type"): "heizungsmanager/central_valve",
+    vol.Optional("take_over", default=False): bool,
+    vol.Optional("use_defaults", default=False): bool})
+@websocket_api.async_response
+async def central_valve_status(hass, connection, msg):
+    if connection.user is None or not connection.user.is_admin:
+        connection.send_error(msg["id"], "unauthorized", "Administratorrechte erforderlich")
+        return
+    valve = hass.data[DOMAIN]["central_valve"]
+    try:
+        if msg["take_over"]:
+            await valve.async_take_over(msg["use_defaults"])
+            await valve.async_tick()
+        source = hass.states.get(valve.plan["source"]) if valve.plan else None
+        connection.send_result(msg["id"], {"plan": valve.plan, "active": bool(source and source.state == "off")})
+    except Exception as err:
+        connection.send_error(msg["id"], "central_valve_error", str(err))
