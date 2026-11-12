@@ -243,6 +243,30 @@ class HeatingCoordinator(DataUpdateCoordinator):
         reported = getattr(state, "last_reported", state.last_updated)
         return (now - reported).total_seconds() < 60 * (minutes or self.config["sensor_timeout_minutes"])
 
+    def midea_temperature_offset(self, now, room_temperature):
+        """Compensate the difference between the Midea sensor and the room."""
+        entity = self.config.get("heat_pump")
+        if self.config.get("room_id") != "wohnzimmer" or not entity:
+            return None
+        device = self.state("heat_pump")
+        if entity == "climate.wz_midea_ac":
+            physical = self.hass.states.get("climate.air_conditioner_midea_wz_air_conditioner")
+            if physical is not None:
+                device = physical
+        reported = (finite(device.attributes.get("current_temperature"), 0, 45)
+                    if self.fresh(device, now, 10) else None)
+        if reported is None or room_temperature is None:
+            self._midea_offset_sample = None
+            return None
+        offset = max(-5.0, min(5.0, reported - room_temperature))
+        stamp = now.timestamp()
+        previous = getattr(self, "_midea_offset_sample", None)
+        if previous and previous[0] == device.entity_id and 0 <= stamp - previous[1] < 600:
+            weight = min(1.0, (stamp - previous[1]) / 300)
+            offset = previous[2] + weight * (offset - previous[2])
+        self._midea_offset_sample = (device.entity_id, stamp, offset)
+        return offset
+
     async def async_weather(self, now):
         if now.timestamp() - self.last_weather_request < 1800:
             return
@@ -567,6 +591,11 @@ class HeatingCoordinator(DataUpdateCoordinator):
                          bool(self.state("radiators") and self.state("radiators").state == "heat"),pv_status,
                          assist_trial=self._assist_trial if can_trial else None) if temp is not None else []
         row = plan[0] if plan else None
+        midea_offset = self.midea_temperature_offset(now, temp)
+        if row and row["heat_pump"] and midea_offset is not None:
+            row["control_target"] = round(row["target"] + midea_offset, 2)
+            row["reason"] += f" · Midea-Istwertausgleich {midea_offset:+.1f} °C"
+
         self._assist_trial = row["assist_trial"] if row and can_trial else None
         self.pump_heat_active = bool(row and row["heat_pump"])
         status = row["phase"] if row else "Raumsensor fehlt oder ist veraltet"

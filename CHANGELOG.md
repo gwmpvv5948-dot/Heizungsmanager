@@ -1,3 +1,7 @@
+## 0.3.33
+
+- Das Midea-Gerätesoll gleicht die gemessene Differenz zur Wohnzimmertemperatur aus.
+
 ## 0.3.32
 
 - Wunschtemperatur direkt auf Raumkacheln vorübergehend ändern und aktive Vorgaben über den Filter Manuell finden.
