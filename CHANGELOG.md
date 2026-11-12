@@ -1,3 +1,7 @@
+## 0.3.34
+
+- Midea im Wohnzimmer erhält die gemessene Raumtemperatur zwischen 19 und 24 °C per Follow Me über den Moes-IR-Sender.
+
 ## 0.3.33
 
 - Das Midea-Gerätesoll gleicht die gemessene Differenz zur Wohnzimmertemperatur aus.

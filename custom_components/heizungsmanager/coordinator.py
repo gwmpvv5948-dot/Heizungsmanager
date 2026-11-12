@@ -12,6 +12,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 from .const import DEFAULTS, DOMAIN
 from .model import ThermalModel, finite, make_plan, next_schedule_time, next_night_time, normalize_config
+from .midea_follow_me import IR_CODES
 from .temperature import RoomTemperature
 from .temperature_history import temperature_history
 from .wall_heater import ENTITY_ID as WALL_HEATER_ENTITY, WallHeater
@@ -242,6 +243,35 @@ class HeatingCoordinator(DataUpdateCoordinator):
             return False
         reported = getattr(state, "last_reported", state.last_updated)
         return (now - reported).total_seconds() < 60 * (minutes or self.config["sensor_timeout_minutes"])
+
+    async def send_midea_room_temperature(self, now, temperature):
+        """Refresh the external temperature used by the Midea thermostat."""
+        if self.config.get("room_id") != "wohnzimmer" or self.config.get("heat_pump") not in (
+            "climate.wz_midea_ac", "climate.air_conditioner_midea_wz_air_conditioner",
+        ):
+            return None
+        if temperature is None or not 19 <= temperature <= 24:
+            return None
+        entity_id = "text.zigbee_infrarot_sender_ir_code_to_send"
+        sender = self.hass.states.get(entity_id)
+        if sender is None or sender.state == "unavailable":
+            return None
+        degrees = int(temperature + 0.5)
+        stamp = now.timestamp()
+        last = getattr(self, "_midea_follow_me_sent", None)
+        if last and last[0] == degrees and 0 <= stamp - last[1] < 60:
+            return degrees
+        try:
+            await self.hass.services.async_call(
+                "text", "set_value", {"entity_id": entity_id, "value": IR_CODES[degrees]},
+                blocking=True,
+            )
+        except Exception as err:
+            _LOGGER.warning("Midea Follow Me konnte nicht gesendet werden: %s", err)
+            return None
+        self._midea_follow_me_sent = (degrees, stamp)
+        self._midea_offset_sample = None
+        return degrees
 
     def midea_temperature_offset(self, now, room_temperature):
         """Compensate the difference between the Midea sensor and the room."""
@@ -591,8 +621,15 @@ class HeatingCoordinator(DataUpdateCoordinator):
                          bool(self.state("radiators") and self.state("radiators").state == "heat"),pv_status,
                          assist_trial=self._assist_trial if can_trial else None) if temp is not None else []
         row = plan[0] if plan else None
-        midea_offset = self.midea_temperature_offset(now, temp)
-        if row and row["heat_pump"] and midea_offset is not None:
+        follow_me = None
+        if (row and row["heat_pump"] and pump_on and self.mode == "Automatik"
+                and not (startup_blocked or window_open or window_unknown or self.manual_until)):
+            follow_me = await self.send_midea_room_temperature(now, temp)
+        midea_offset = self.midea_temperature_offset(now, temp) if follow_me is None else None
+        if follow_me is not None:
+            row["control_target"] = row["target"]
+            row["reason"] += f" · Midea Follow Me {follow_me} °C"
+        elif row and row["heat_pump"] and midea_offset is not None:
             row["control_target"] = round(row["target"] + midea_offset, 2)
             row["reason"] += f" · Midea-Istwertausgleich {midea_offset:+.1f} °C"
 
