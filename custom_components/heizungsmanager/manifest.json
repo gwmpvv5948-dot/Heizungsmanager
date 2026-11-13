@@ -1,7 +1,7 @@
 {
   "domain": "heizungsmanager",
   "name": "Heizungsmanager",
-  "version": "0.3.42",
+  "version": "0.3.43",
   "config_flow": true,
   "documentation": "https://github.com/gwmpvv5948-dot/Heizungsmanager",
   "dependencies": [

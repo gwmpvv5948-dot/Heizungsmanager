@@ -230,7 +230,7 @@ def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_act
             sources = "both"
         pump_offset = config.get("pump_temperature_offset", 0.5) if config.get("heat_pump") and (not holding or (pv and predicted < target and sources in ("both", "heat_pump"))) else 0.0
         if config.get("midea_follow_me") == "off":
-            pump_offset = 0.0
+            pump_offset = config.get("pump_temperature_offset", 0.5) if config.get("heat_pump") and sources in ("both", "heat_pump") else 0.0
         control_target = target + pump_offset
         if holding:
             pump_heat_active = (predicted < target + config.get("pump_overheat_margin",.5)) if active else predicted <= target

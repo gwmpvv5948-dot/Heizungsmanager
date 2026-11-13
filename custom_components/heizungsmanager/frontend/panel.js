@@ -36,7 +36,7 @@ const SETTINGS = [
     ])
   }]),
   {title:'Wärmepumpe · Haltebetrieb und PV-Vorrang',description:'Temperaturhalten lässt die Wärmepumpe beim erreichten Raumziel im Heizmodus. PV priorisiert sie gegenüber Heizkörpern; fehlende PV schaltet sie nicht aus. Tür, Aus, ungültige Sensoren und Übertemperatur haben Vorrang. PV-Werte kommen optional lokal vom Strommanager, ohne zusätzliche Cloud-Verbindung.',fields:[
-    {key:'midea_follow_me',label:'Midea · Follow Me',options:[['on','Ein'],['off','Aus · VTherm regelt']],hint:'Bei Aus erhält der konfigurierte VTherm-Regler das Raum-Soll ohne Heizungsmanager-Offset.'},
+    {key:'midea_follow_me',label:'Midea · Follow Me',options:[['on','Ein'],['off','Aus · VTherm regelt']],hint:'Bei Aus erhält der konfigurierte VTherm-Regler das Raum-Soll plus den eingestellten Sollwertoffset.'},
     {key:'pump_regulation',label:'Wärmepumpen-Regelung',options:[['hold','Temperatur halten · empfohlen'],['hysteresis','Ein/Aus nach Raumtemperatur']]},
     {key:'pv_preference_mode',label:'PV-Vorrang',options:[['auto','Automatisch über Strommanager'],['off','Aus']]},
     {key:'pv_on_w',label:'PV-Vorrang über PV-Erzeugung (W)',type:'number',min:100,max:10000,step:100},
