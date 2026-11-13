@@ -250,7 +250,7 @@ class HeatingCoordinator(DataUpdateCoordinator):
             "climate.wz_midea_ac", "climate.air_conditioner_midea_wz_air_conditioner",
         ):
             return None
-        if temperature is None or not 19 <= temperature <= 24:
+        if temperature is None or not min(IR_CODES) <= temperature <= max(IR_CODES):
             return None
         entity_id = "text.zigbee_infrarot_sender_ir_code_to_send"
         sender = self.hass.states.get(entity_id)

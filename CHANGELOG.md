@@ -1,3 +1,7 @@
+## 0.3.41
+
+- Midea Follow Me sendet Raumtemperaturen von 18 bis 25 °C mit deaktiviertem Piepton.
+
 ## 0.3.39
 
 - Globale Einstellungen mit Tagesdiagramm, frei editierbaren KNX-Phasen, Sommermodus-Schalter und Wärmezählerwerten.
