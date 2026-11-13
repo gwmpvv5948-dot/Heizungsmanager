@@ -188,6 +188,7 @@ class HeizungsmanagerPanel extends HTMLElement {
       .valve-chart{width:100%;display:block;margin:12px 0}
       .valve-row{display:grid;grid-template-columns:12px minmax(92px,110px) minmax(45px,1fr) 56px 38px;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--divider-color)}
       .valve-row i{height:10px;border-radius:3px}
+      .valve-row input{width:100%;min-width:0;margin:0}
       .valve-row input[type=range]{padding:0;accent-color:var(--phase)}
       .valve-row button{padding:8px}
       .valve-row small{grid-column:2/-1;color:var(--error-color)}
@@ -197,6 +198,15 @@ class HeizungsmanagerPanel extends HTMLElement {
       .valve-toggle:checked{background:var(--primary-color)}.valve-toggle:checked:before{margin-left:20px}
       [data-valve-status]:empty{display:none}
       @media(max-width:650px){.global-layout{grid-template-columns:1fr}.global-nav{flex-direction:row}.valve-stats>div{padding:7px}}
+      @media(max-width:460px){
+        .valve-row{grid-template-columns:10px minmax(0,1fr) auto 44px;gap:8px 10px}
+        .valve-row input[type=time]{grid-area:1 / 2 / 2 / 4;max-width:140px}
+        .valve-row input[type=range]{grid-area:2 / 2}
+        .valve-row output{grid-area:2 / 3;white-space:nowrap}
+        .valve-row button,.valve-placeholder{grid-area:1 / 4 / 3 / 5;min-height:44px}
+        .valve-row small:empty{display:none}
+        .valve-stats>div{min-width:0;overflow-wrap:anywhere}
+      }
     </style>
     <div class="global-heading"><div><small>Gilt für alle Räume</small><h2>Globale Einstellungen</h2></div></div>
     <div class="global-layout"><nav class="global-nav" aria-label="Globale Einstellungen">
@@ -307,7 +317,7 @@ class HeizungsmanagerPanel extends HTMLElement {
           <input type="time" value="${escapeHTML(phase.start)}" aria-label="Start Phase ${i+1}" ${i===0?'readonly':''}>
           <input type="range" min="0" max="100" step="0.1" value="${phase.value}" aria-label="Ventilstellung Phase ${i+1}">
           <output>${phase.value} %</output>
-          ${i===0?'<span></span>':`<button type="button" class="reset" aria-label="Phase ${i+1} löschen"><ha-icon icon="mdi:delete-outline"></ha-icon></button>`}
+          ${i===0?'<span class="valve-placeholder"></span>':`<button type="button" class="reset" aria-label="Phase ${i+1} löschen"><ha-icon icon="mdi:delete-outline"></ha-icon></button>`}
           <small></small></div>`;
       }).join('');
       rows.querySelectorAll('.valve-row').forEach((row,i)=>{

@@ -1,3 +1,7 @@
+## 0.3.45
+
+- Auf schmalen Displays stehen Uhrzeit und Schieberegler des zentralen Stellantriebs untereinander.
+
 ## 0.3.44
 
 - Kompakter Heizphasen-Editor mit Werktag-/Wochenendumschaltung, 24-Stunden-Vorschau und direkter Prüfung der Startzeiten.
