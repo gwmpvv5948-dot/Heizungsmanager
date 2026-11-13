@@ -89,7 +89,7 @@ ROOMS = {"wohnzimmer": "Wohnzimmer", "arbeitszimmer": "Arbeitszimmer", "alwin": 
 def normalize_config(config):
     """Migrate the old two-temperature plan without changing its saved inputs."""
     result = dict(config)
-    for key,value in {"pump_regulation":"hold","pv_preference_mode":"auto","pv_on_w":300,"pv_off_w":200,"pv_confirm_minutes":5,"pv_hold_minutes":20,"pv_aux_gap":1.0}.items():
+    for key,value in {"midea_follow_me":"on","pump_regulation":"hold","pv_preference_mode":"auto","pv_on_w":300,"pv_off_w":200,"pv_confirm_minutes":5,"pv_hold_minutes":20,"pv_aux_gap":1.0}.items():
         result.setdefault(key,value)
     if (result["pv_on_w"], result["pv_off_w"]) == (1000, 500):
         result.update(pv_on_w=300, pv_off_w=200)
@@ -229,6 +229,8 @@ def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_act
         if pv and sources == "radiators" and config.get("heat_pump"):
             sources = "both"
         pump_offset = config.get("pump_temperature_offset", 0.5) if config.get("heat_pump") and (not holding or (pv and predicted < target and sources in ("both", "heat_pump"))) else 0.0
+        if config.get("midea_follow_me") == "off":
+            pump_offset = 0.0
         control_target = target + pump_offset
         if holding:
             pump_heat_active = (predicted < target + config.get("pump_overheat_margin",.5)) if active else predicted <= target

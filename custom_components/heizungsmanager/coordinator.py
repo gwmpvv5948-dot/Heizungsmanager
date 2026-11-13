@@ -622,10 +622,11 @@ class HeatingCoordinator(DataUpdateCoordinator):
                          assist_trial=self._assist_trial if can_trial else None) if temp is not None else []
         row = plan[0] if plan else None
         follow_me = None
-        if (row and row["heat_pump"] and pump_on and self.mode == "Automatik"
+        use_follow_me = self.config.get("midea_follow_me") != "off"
+        if (use_follow_me and row and row["heat_pump"] and pump_on and self.mode == "Automatik"
                 and not (startup_blocked or window_open or window_unknown or self.manual_until)):
             follow_me = await self.send_midea_room_temperature(now, temp)
-        midea_offset = self.midea_temperature_offset(now, temp) if follow_me is None else None
+        midea_offset = self.midea_temperature_offset(now, temp) if use_follow_me and follow_me is None else None
         if follow_me is not None:
             row["control_target"] = row["target"]
             row["reason"] += f" · Midea Follow Me {follow_me} °C"

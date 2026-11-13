@@ -13,6 +13,8 @@ from .model import normalize_config, PHASES, SOURCES, ROOMS
 def schema(values):
     values = normalize_config(values)
     fields = {}
+    if values["room_id"] == "wohnzimmer":
+        fields[vol.Required("midea_follow_me", default=values["midea_follow_me"])] = vol.In({"on": "Ein", "off": "Aus · VTherm regelt"})
     fields[vol.Required("pump_regulation",default=values["pump_regulation"])]=vol.In({"hold":"Temperatur halten","hysteresis":"Ein/Aus nach Raumtemperatur"})
     fields[vol.Required("pv_preference_mode",default=values["pv_preference_mode"])]=vol.In({"auto":"Automatisch über Strommanager","off":"Aus"})
     fields[vol.Required("room_id", default=values["room_id"])] = vol.In(ROOMS)
