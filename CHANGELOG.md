@@ -1,3 +1,7 @@
+## 0.3.44
+
+- Kompakter Heizphasen-Editor mit Werktag-/Wochenendumschaltung, 24-Stunden-Vorschau und direkter Prüfung der Startzeiten.
+
 ## 0.3.41
 
 - Midea Follow Me sendet Raumtemperaturen von 18 bis 25 °C mit deaktiviertem Piepton.

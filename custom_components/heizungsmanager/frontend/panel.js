@@ -1,3 +1,4 @@
+import {mountPhases,phaseError} from './phase-editor.js?v=0.3.44';
 import {wallHeaterSwitch,wallHeaterPowerId} from './energy-overview.js?v=0.3.35';
 import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.29';
 import {overviewHTML,overviewCSS,quickOverviewCSS,roomOverview} from './overview.js?v=0.3.35';
@@ -28,13 +29,7 @@ const SETTINGS = [
     {key:'secondary_temperature_offset',label:'Korrektur Ikea (°C)',type:'number',min:-3,max:3,step:0.1},
     {key:'temperature_smoothing_minutes',label:'Glättung · Zeitkonstante (Minuten)',type:'number',min:0,max:15,step:1,hint:'Standard 3 Minuten. 0 deaktiviert die Glättung. Nach Quellenwechsel mindestens 10 Minuten Lernpause.'}
   ]},
-  ...['weekday','weekend'].flatMap(kind => [{phaseLayout:true,title:kind==='weekday'?'Vier Phasen · Montag bis Freitag':'Vier Phasen · Samstag und Sonntag',description:'Die Startzeit ist der tatsächliche Phasenbeginn. Jede Phase gilt bis zur nächsten; Nacht läuft über Mitternacht. Kein zusätzlicher automatischer Vorheizbeginn.',fields:
-    [['morning','Morgens'],['day','Tag'],['evening','Abend'],['night','Nacht']].flatMap(([phase,label])=>[
-      {key:`${kind}_${phase}_start`,label:`${label} · Startzeit`,type:'time'},
-      {key:`${kind}_${phase}_temperature`,label:`${label} · Zieltemperatur (°C)`,type:'number',min:7,max:24,step:0.5},
-      {key:`${kind}_${phase}_sources`,label:`${label} · Wer soll heizen?`,options:[['both','Midea + Heizkörper'],['heat_pump','Midea'],['radiators','Heizkörper'],['off','Keine Wärmequelle']]}
-    ])
-  }]),
+  {phaseLayout:true},
   {title:'Wärmepumpe · Haltebetrieb und PV-Vorrang',description:'Temperaturhalten lässt die Wärmepumpe beim erreichten Raumziel im Heizmodus. PV priorisiert sie gegenüber Heizkörpern; fehlende PV schaltet sie nicht aus. Tür, Aus, ungültige Sensoren und Übertemperatur haben Vorrang. PV-Werte kommen optional lokal vom Strommanager, ohne zusätzliche Cloud-Verbindung.',fields:[
     {key:'midea_follow_me',label:'Midea · Follow Me',options:[['on','Ein'],['off','Aus · VTherm regelt']],hint:'Bei Aus erhält der konfigurierte VTherm-Regler das Raum-Soll plus den eingestellten Sollwertoffset.'},
     {key:'pump_regulation',label:'Wärmepumpen-Regelung',options:[['hold','Temperatur halten · empfohlen'],['hysteresis','Ein/Aus nach Raumtemperatur']]},
@@ -494,8 +489,16 @@ class HeizungsmanagerPanel extends HTMLElement {
       card.hass=this._hass; content.append(card);
     } else {
       const mode=this._hass.states[this.settings.mode_entity]?.state || this.settings.mode;
-      content.innerHTML=`<p class="intro">Alle Einstellungen werden lokal in Home Assistant gespeichert.</p><section class="section operation"><label for="operation-mode">Betriebsart</label><select id="operation-mode">${['Beobachten','Automatik','Aus'].map(v=>`<option ${mode===v?'selected':''}>${v}</option>`).join('')}</select><div id="mode-message">Beobachten sendet keine Heizbefehle. Automatik übernimmt die Regler. Aus schaltet beide aus.</div></section><form><div class="notice">Die gewählte Betriebsart bleibt beim Speichern und nach HA-Neustarts erhalten. In Automatik werden gespeicherte Änderungen direkt für die Regelung verwendet.</div>${SETTINGS.map(group=>`<section class="section"><h2>${escapeHTML(group.title)}</h2><p class="intro">${escapeHTML(group.description)}</p>${group.phaseLayout?Array.from({length:4},(_,i)=>`<fieldset class="phase-row"><legend>${['Morgens','Tag','Abend','Nacht'][i]}</legend><div class="fields phase-fields">${group.fields.slice(i*3,i*3+3).map(field=>this.field(field)).join('')}</div></fieldset>`).join(''):`<div class="fields">${group.fields.map(field=>this.field(field)).join('')}</div>`}</section>`).join('')}<section class="section"><h2>Lokales Lernen und Planung</h2><div class="readonly">Berechnung alle <strong>30 Sekunden</strong>, Fahrplan über <strong>24 Stunden</strong> mit <strong>10-Minuten-Schritten</strong>.<br>Wärmeverlust sowie Heizbeiträge von Midea und Heizkörpern werden aus geeigneten getrennten Betriebsphasen gelernt. Gemeinsame Phasen werden nicht zur Trennung der Heizbeiträge verwendet.<br>Nach einem HA-Neustart wird die zuletzt gewählte Betriebsart wiederhergestellt. Wetterabruf ggf. online; Planung und Lernen lokal.<br>Kein zusätzlicher Frostschutz im Modus Aus. Bestehende VTherm-Schutzfunktionen bleiben geräteseitig bestehen.</div></section><div class="actions"><button class="save" type="submit">Einstellungen speichern</button><button class="reset" type="button">Änderungen verwerfen</button><span class="feedback" role="status">${this._dirty?'Ungespeicherte Änderungen':''}</span></div></form>`;
+      content.innerHTML=`<p class="intro">Alle Einstellungen werden lokal in Home Assistant gespeichert.</p><section class="section operation"><label for="operation-mode">Betriebsart</label><select id="operation-mode">${['Beobachten','Automatik','Aus'].map(v=>`<option ${mode===v?'selected':''}>${v}</option>`).join('')}</select><div id="mode-message">Beobachten sendet keine Heizbefehle. Automatik übernimmt die Regler. Aus schaltet beide aus.</div></section><form><div class="notice">Die gewählte Betriebsart bleibt beim Speichern und nach HA-Neustarts erhalten. In Automatik werden gespeicherte Änderungen direkt für die Regelung verwendet.</div>${SETTINGS.map(group=>group.phaseLayout?'<section class="section phase-editor"></section>':`<section class="section"><h2>${escapeHTML(group.title)}</h2><p class="intro">${escapeHTML(group.description)}</p><div class="fields">${group.fields.map(field=>this.field(field)).join('')}</div></section>`).join('')}<section class="section"><h2>Lokales Lernen und Planung</h2><div class="readonly">Berechnung alle <strong>30 Sekunden</strong>, Fahrplan über <strong>24 Stunden</strong> mit <strong>10-Minuten-Schritten</strong>.<br>Wärmeverlust sowie Heizbeiträge von Midea und Heizkörpern werden aus geeigneten getrennten Betriebsphasen gelernt. Gemeinsame Phasen werden nicht zur Trennung der Heizbeiträge verwendet.<br>Nach einem HA-Neustart wird die zuletzt gewählte Betriebsart wiederhergestellt. Wetterabruf ggf. online; Planung und Lernen lokal.<br>Kein zusätzlicher Frostschutz im Modus Aus. Bestehende VTherm-Schutzfunktionen bleiben geräteseitig bestehen.</div></section><div class="actions"><button class="save" type="submit">Einstellungen speichern</button><button class="reset" type="button">Änderungen verwerfen</button><span class="feedback" role="status">${this._dirty?'Ungespeicherte Änderungen':''}</span></div></form>`;
       const form=content.querySelector('form');
+      const bindPhases=()=>mountPhases(form.querySelector('.phase-editor'),this.draft,this.settings.config,(group,edited=true)=>{
+        this._phaseGroup=group;
+        if(edited){
+          this._dirty=Object.keys(this.draft).some(key=>this.draft[key]!==this.settings.config[key]);
+          form.querySelector('.feedback').textContent=this._dirty?'Ungespeicherte Änderungen':'';
+        }
+      },this._phaseGroup);
+      bindPhases();
       form.addEventListener('input',event=>{
         const field=event.target;
         if(!field.name) return;
@@ -506,7 +509,11 @@ class HeizungsmanagerPanel extends HTMLElement {
       form.addEventListener('change',event=>{
         if(event.target.tagName==='SELECT') {this.draft[event.target.name]=event.target.value;this._dirty=true;content.querySelector('.feedback').textContent='Ungespeicherte Änderungen';}
       });
-      form.addEventListener('submit',event=>{event.preventDefault();this.save(form);});
+      form.addEventListener('change',event=>{if(['heat_pump','radiators'].includes(event.target.name))bindPhases();});
+      form.addEventListener('submit',async event=>{
+        event.preventDefault();
+        if(await this.save(form))bindPhases();
+      });
       content.querySelector('.reset').addEventListener('click',()=>{this.draft={...this.settings.config};this._dirty=false;this.render();});
       const devices=document.createElement('heizungsmanager-card');devices.setConfig({entity:this.settings.plan_entity,controlsOnly:true});devices.hass=this._hass;content.append(devices);
       content.querySelector('#operation-mode').addEventListener('change',async event=>{
@@ -520,6 +527,9 @@ class HeizungsmanagerPanel extends HTMLElement {
   async save(form) {
     if(!form.reportValidity()) return;
     const feedback=this.shadowRoot.querySelector('.feedback'),button=form.querySelector('.save');
+    if(button.disabled)return;
+    const error=phaseError(this.draft);
+    if(error){feedback.classList.add('error');feedback.textContent=error;return;}
     button.disabled=true;feedback.classList.remove('error');feedback.textContent='Wird gespeichert …';
     const config={...this.draft};
     for(const key of Object.keys(config)) if(key.endsWith('_start') && typeof config[key]==='string' && config[key].length===5) config[key]+=':00';
@@ -528,6 +538,7 @@ class HeizungsmanagerPanel extends HTMLElement {
       this.settings.config={...config};this.settings.mode=result.mode;this.draft={...config};this._dirty=false;
       this.shadowRoot.querySelector('#operation-mode').value=result.mode;
       feedback.textContent=`Gespeichert. Betriebsart ${result.mode} bleibt aktiv.`;
+      return true;
     } catch(err) {feedback.classList.add('error');feedback.textContent=err.message || String(err);}
     finally {button.disabled=false;}
   }
