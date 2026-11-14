@@ -231,9 +231,20 @@ class HouseHeat:
             daily_usage.append({'date': key, 'kwh': row['kwh'],
                                 'partial': row['partial'] or row['seconds'] < min(end, datetime.now(zone).timestamp()) - start - 60,
                                 'today': date == today})
-        return {'daily_usage':daily_usage, 'year':year, 'january_kwh':january, 'year_kwh':year_kwh, 'configured':configured,'base_kwh':self.data.get('base_kwh'),'start':self.data.get('start'),
+        recent = [row['kwh'] for row in daily_usage
+                  if not row['partial'] and today - timedelta(days=14) <= datetime.fromisoformat(row['date']).date() < today]
+        incomplete = configured and (not rooms or any(r.get('partial') for r in rooms.values()) or self.error is not None)
+        forecast = None
+        updated = self.data.get('updated')
+        if year_kwh is not None and len(recent) >= 7 and updated is not None and not incomplete:
+            as_of = datetime.fromtimestamp(updated, zone)
+            if as_of.date() == today:
+                next_year = datetime(year + 1, 1, 1, tzinfo=zone)
+                days_left = max(0, next_year.timestamp() - updated) / 86400
+                forecast = year_kwh + days_left * sum(recent) / len(recent)
+        return {'year_forecast_kwh': forecast, 'daily_usage':daily_usage, 'year':year, 'january_kwh':january, 'year_kwh':year_kwh, 'configured':configured,'base_kwh':self.data.get('base_kwh'),'start':self.data.get('start'),
             'daily_extra_kwh':daily_extra, 'radiator_kwh':radiator_kwh, 'comparison_percent':self.data.get('comparison_percent'), 'added_kwh':added,'total_kwh':total,
-            'updated':self.data.get('updated'),'incomplete':configured and (not rooms or any(r.get('partial') for r in rooms.values()) or self.error is not None),
+            'updated':self.data.get('updated'),'incomplete':incomplete,
             'note':self.error or ('Historie teilweise unvollständig' if any(r.get('partial') for r in rooms.values()) else None)}
 
 

@@ -1,3 +1,7 @@
+## 0.3.46
+
+- Heizwärme heute zeigt eine Hochrechnung bis Ende des laufenden Jahres.
+
 ## 0.3.45
 
 - Auf schmalen Displays stehen Uhrzeit und Schieberegler des zentralen Stellantriebs untereinander.
