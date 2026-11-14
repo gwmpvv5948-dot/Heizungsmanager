@@ -1,3 +1,7 @@
+## 0.3.49
+
+- Die Jahresprognose steht in den aufklappbaren Details zum Wärmezähler.
+
 ## 0.3.48
 
 - Jahresbalken für die Hauswärme mit vorläufiger Hochrechnung, Schätzspanne und Datenbasis.

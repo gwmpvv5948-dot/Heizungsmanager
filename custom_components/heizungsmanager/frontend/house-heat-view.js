@@ -54,18 +54,19 @@ export function houseHeatView(status={},zone='Europe/Berlin',detailsOpen=false,u
  const comparison=rounded===null?'':rounded===0?'Schätzung und Ablesung stimmen überein':`Schätzung lag ${number(rounded,1)} % zu ${difference<0?'niedrig':'hoch'}`;
  return `<section class="house-heat-meter" aria-label="Geschätzter Haus-Wärmezähler"><div><small>Wärmezähler Haus · geschätzt</small>
  ${status.configured?`<strong>${status.total_kwh.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})} kWh</strong> <small>· +${number(status.added_kwh,1)} kWh seit Ablesung ${esc(date)}</small>`:'<small>Erste Ablesung erfassen</small>'}
+
+ ${status.incomplete?`<small class="meter-message meter-warning">${esc(status.note||'Fortschreibung unvollständig · Messdaten fehlen')}</small>`:''}</div>
+ <button type="button" class="meter-read">Ablesen</button>
  <details class="meter-details"${detailsOpen?' open=""':''}><summary>Details zum Wärmezähler</summary>
  ${Number.isFinite(status.daily_extra_kwh)?`<small class="meter-message">Gelernter Aufschlag · ${number(status.daily_extra_kwh,2)} kWh/Tag</small>`:'<small class="meter-message">Tagesaufschlag lernt aus Ablesungen mit mindestens 24 h Abstand</small>'}
  ${comparison?`<small class="meter-message">${comparison}</small>`:''}
- </details>
- ${status.incomplete?`<small class="meter-message meter-warning">${esc(status.note||'Fortschreibung unvollständig · Messdaten fehlen')}</small>`:''}</div>
- <button type="button" class="meter-read">Ablesen</button>
  ${yearForecast(status,date)}
+ </details>
  ${dailyChart(status.daily_usage||[],usageOpen)}</section>`;
 }
 
 export const houseHeatCSS=`
-.heat-year{grid-column:1/-1;border:1px solid var(--divider-color);border-radius:14px;padding:14px;color:var(--primary-text-color);--heat-orange:#df6439}
+.heat-year{margin-top:8px;border:1px solid var(--divider-color);border-radius:14px;padding:14px;color:var(--primary-text-color);--heat-orange:#df6439}
 .heat-year header,.heat-coverage-label,.heat-axis{display:flex;justify-content:space-between;gap:6px}
 .heat-year-values{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:12px 0}
 .heat-year-values strong{display:block;font-size:clamp(18px,3vw,28px)}
@@ -90,7 +91,7 @@ export const houseHeatCSS=`
 .house-heat-meter small{color:var(--secondary-text-color);font-size:12px}
 .house-heat-meter div>small:first-child,.meter-message{display:block}
 .house-heat-meter strong{font-family:ui-monospace,monospace;white-space:nowrap}
-.meter-details{margin-top:4px}.meter-details summary{cursor:pointer;color:var(--secondary-text-color);font-size:12px}
+.meter-details{grid-column:1/-1}.meter-details summary{cursor:pointer;color:var(--secondary-text-color);font-size:12px}
 .house-heat-meter .meter-warning{color:#d8aa65}
 .meter-usage{grid-column:1/-1}
 .meter-usage summary{cursor:pointer;color:var(--secondary-text-color);font-size:12px}
