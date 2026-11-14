@@ -1,6 +1,6 @@
 import {mountPhases,phaseError} from './phase-editor.js?v=0.3.44';
 import {wallHeaterSwitch,wallHeaterPowerId} from './energy-overview.js?v=0.3.35';
-import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.46';
+import {houseHeatView,houseHeatCSS} from './house-heat-view.js?v=0.3.47';
 import {overviewHTML,overviewCSS,quickOverviewCSS,roomOverview} from './overview.js?v=0.3.35';
 import {dayStart} from './consumption.js?v=0.3.29';
 import './heizungsmanager-card.js?v=0.3.29';

@@ -1,3 +1,7 @@
+## 0.3.47
+
+- Die Jahresprognose nutzt ein geprüftes Außentemperaturmodell, sobald genügend Daten vorliegen.
+
 ## 0.3.46
 
 - Heizwärme heute zeigt eine Hochrechnung bis Ende des laufenden Jahres.

@@ -1,10 +1,13 @@
 """Persistent estimated house meter, based on one dated physical reading."""
 import asyncio
 import math
+from collections import defaultdict
+from statistics import mean
 from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 from homeassistant.helpers.storage import Store
 from .const import DOMAIN
+from .heat_forecast import validated_model
 
 
 def kwh(state):
@@ -68,7 +71,7 @@ class HouseHeat:
         if type(stamp) not in (int,float) or not math.isfinite(stamp) or not 0<stamp<=now:
             raise ValueError('Gültigen Ablesezeitpunkt in der Vergangenheit wählen')
         async with self.lock:
-            self.data={'daily_usage':self.data.get('daily_usage',{}),'year_baseline':self.data.get('year_baseline'),'daily_extra_kwh':self.data.get('daily_extra_kwh'),'base_kwh':base,'start':stamp,'rooms':{}}
+            self.data={'outdoor_hours':self.data.get('outdoor_hours',{}),'daily_usage':self.data.get('daily_usage',{}),'year_baseline':self.data.get('year_baseline'),'daily_extra_kwh':self.data.get('daily_extra_kwh'),'base_kwh':base,'start':stamp,'rooms':{}}
             self.attempted=None
             await self.store.async_save(self.data)
         await self.async_refresh()
@@ -97,6 +100,7 @@ class HouseHeat:
                 'base_kwh': value, 'start': stamp, 'daily_extra_kwh': daily_extra,
                 'rooms': {}, 'comparison_percent': comparison,
                 'year_baseline': self.data.get('year_baseline'),
+                'outdoor_hours': self.data.get('outdoor_hours', {}),
                 'daily_usage': self.data.get('daily_usage', {}),
             }
             await self.store.async_save(reading)
@@ -110,7 +114,7 @@ class HouseHeat:
         if type(value) not in (int,float) or not math.isfinite(value) or not 0<=value<=1e9:
             raise ValueError('Startwert in kWh muss zwischen 0 und 1.000.000.000 liegen')
         async with self.lock:
-            self.data={'daily_usage':self.data.get('daily_usage',{}),'year_baseline':self.data.get('year_baseline'),'daily_extra_kwh':self.data.get('daily_extra_kwh'),'base_kwh':value,'start':self.data.get('start'),'rooms':{}}
+            self.data={'outdoor_hours':self.data.get('outdoor_hours',{}),'daily_usage':self.data.get('daily_usage',{}),'year_baseline':self.data.get('year_baseline'),'daily_extra_kwh':self.data.get('daily_extra_kwh'),'base_kwh':value,'start':self.data.get('start'),'rooms':{}}
             self.attempted=None
             await self.store.async_save(self.data)
         await self.async_refresh()
@@ -122,7 +126,7 @@ class HouseHeat:
         if not 0<stamp<=datetime.now(timezone.utc).timestamp():
             raise ValueError('Ablesezeitpunkt muss in der Vergangenheit liegen')
         async with self.lock:
-            self.data={'daily_usage':self.data.get('daily_usage',{}),'year_baseline':self.data.get('year_baseline'),'daily_extra_kwh':self.data.get('daily_extra_kwh'),'base_kwh':self.data.get('base_kwh'),'start':stamp,'rooms':{}}
+            self.data={'outdoor_hours':self.data.get('outdoor_hours',{}),'daily_usage':self.data.get('daily_usage',{}),'year_baseline':self.data.get('year_baseline'),'daily_extra_kwh':self.data.get('daily_extra_kwh'),'base_kwh':self.data.get('base_kwh'),'start':stamp,'rooms':{}}
             self.attempted=None
             await self.store.async_save(self.data)
         await self.async_refresh()
@@ -184,7 +188,8 @@ class HouseHeat:
                     row['seconds'] += duration
                     row['partial'] |= partial
                     cursor += duration
-                data = {**self.data, 'rooms': progress, 'updated': now, 'daily_usage': daily}
+                temperatures = self.record_temperature(now)
+                data = {**self.data, 'rooms': progress, 'updated': now, 'daily_usage': daily, 'outdoor_hours': temperatures}
                 await self.store.async_save(data)
                 self.data = data
                 self.error = None
@@ -208,6 +213,76 @@ class HouseHeat:
             await self.store.async_save(data)
             self.data = data
         return self.status()
+
+    def weather_controller(self):
+        return next((item for item in self.hass.data.get(DOMAIN, {}).values()
+                     if getattr(item, 'config', {}).get('weather')), None)
+
+    def record_temperature(self, now):
+        controller = self.weather_controller()
+        previous = self.data.get('outdoor_hours', {})
+        hour = int(now // 3600)
+        samples = {key: value for key, value in previous.items()
+                   if int(key) >= hour - 2 * 366 * 24}
+        weather = self.hass.states.get(controller.config['weather']) if controller else None
+        if weather is None or weather.state in ('unknown', 'unavailable'):
+            return samples
+        try:
+            value = float(weather.attributes.get('temperature'))
+        except (TypeError, ValueError):
+            return samples
+        if weather.attributes.get('temperature_unit') == '°F':
+            value = (value - 32) * 5 / 9
+        if -30 <= value <= 45 and now - weather.last_updated.timestamp() <= 10800:
+            samples[str(hour)] = value
+        return samples
+
+    def temperature_forecast(self, daily_usage, as_of, next_year, fallback):
+        zone = as_of.tzinfo
+        hourly = defaultdict(list)
+        for hour, temperature in self.data.get('outdoor_hours', {}).items():
+            day = datetime.fromtimestamp(int(hour) * 3600, zone).date()
+            hourly[day].append(temperature)
+        temperatures = {day: mean(values) for day, values in hourly.items() if len(values) >= 20}
+        samples = []
+        for row in daily_usage:
+            day = datetime.fromisoformat(row['date']).date()
+            if day < as_of.date() and not row['partial'] and day in temperatures:
+                samples.append((day, temperatures[day], row['kwh']))
+        model = validated_model(samples)
+        if model is None:
+            return None, 0
+
+        controller = self.weather_controller()
+        forecast_hours = defaultdict(list)
+        updated = getattr(controller, 'forecast_updated', None)
+        if updated and 0 <= datetime.now(timezone.utc).timestamp() - updated < 7200:
+            for stamp, temperature in controller.forecast:
+                if stamp >= as_of.timestamp():
+                    forecast_hours[datetime.fromtimestamp(stamp, zone).date()].append(temperature)
+
+        remainder = 0
+        model_days = 0
+        cursor = as_of
+        while cursor < next_year:
+            day = cursor.date()
+            end = datetime.combine(day + timedelta(days=1), time.min, zone)
+            hours = (end.timestamp() - cursor.timestamp()) / 3600
+            forecast = forecast_hours[day]
+            seasonal = [value for date, value in temperatures.items()
+                        if date < as_of.date() and date.year < day.year
+                        and abs((date.replace(year=2000) - day.replace(year=2000)).days) <= 14]
+            if forecast and len(forecast) >= max(1, hours - 2):
+                rate = model(mean(forecast))
+                model_days += 1
+            elif len(seasonal) >= 7:
+                rate = mean(model(value) for value in seasonal)
+                model_days += 1
+            else:
+                rate = fallback
+            remainder += hours / 24 * rate
+            cursor = end
+        return remainder, model_days
 
     def status(self):
         configured=self.data.get('start') is not None and self.data.get('base_kwh') is not None
@@ -235,14 +310,17 @@ class HouseHeat:
                   if not row['partial'] and today - timedelta(days=14) <= datetime.fromisoformat(row['date']).date() < today]
         incomplete = configured and (not rooms or any(r.get('partial') for r in rooms.values()) or self.error is not None)
         forecast = None
+        model_days = 0
         updated = self.data.get('updated')
         if year_kwh is not None and len(recent) >= 7 and updated is not None and not incomplete:
             as_of = datetime.fromtimestamp(updated, zone)
             if as_of.date() == today:
                 next_year = datetime(year + 1, 1, 1, tzinfo=zone)
                 days_left = max(0, next_year.timestamp() - updated) / 86400
-                forecast = year_kwh + days_left * sum(recent) / len(recent)
-        return {'year_forecast_kwh': forecast, 'daily_usage':daily_usage, 'year':year, 'january_kwh':january, 'year_kwh':year_kwh, 'configured':configured,'base_kwh':self.data.get('base_kwh'),'start':self.data.get('start'),
+                average = mean(recent)
+                remainder, model_days = self.temperature_forecast(daily_usage, as_of, next_year, average)
+                forecast = year_kwh + (remainder if model_days else days_left * average)
+        return {'year_forecast_model_days': model_days, 'year_forecast_kwh': forecast, 'daily_usage':daily_usage, 'year':year, 'january_kwh':january, 'year_kwh':year_kwh, 'configured':configured,'base_kwh':self.data.get('base_kwh'),'start':self.data.get('start'),
             'daily_extra_kwh':daily_extra, 'radiator_kwh':radiator_kwh, 'comparison_percent':self.data.get('comparison_percent'), 'added_kwh':added,'total_kwh':total,
             'updated':self.data.get('updated'),'incomplete':incomplete,
             'note':self.error or ('Historie teilweise unvollständig' if any(r.get('partial') for r in rooms.values()) else None)}
