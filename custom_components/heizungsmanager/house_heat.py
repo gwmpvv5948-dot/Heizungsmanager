@@ -306,21 +306,37 @@ class HouseHeat:
             daily_usage.append({'date': key, 'kwh': row['kwh'],
                                 'partial': row['partial'] or row['seconds'] < min(end, datetime.now(zone).timestamp()) - start - 60,
                                 'today': date == today})
+        by_date = {row['date']: row for row in daily_usage}
+        coverage = []
+        for offset in range(14, 0, -1):
+            day = (today - timedelta(days=offset)).isoformat()
+            row = by_date.get(day)
+            coverage.append({'date': day, 'state': 'missing' if row is None else 'partial' if row['partial'] else 'full'})
         recent = [row['kwh'] for row in daily_usage
                   if not row['partial'] and today - timedelta(days=14) <= datetime.fromisoformat(row['date']).date() < today]
         incomplete = configured and (not rooms or any(r.get('partial') for r in rooms.values()) or self.error is not None)
         forecast = None
         model_days = 0
         updated = self.data.get('updated')
-        if year_kwh is not None and len(recent) >= 7 and updated is not None and not incomplete:
+        average = mean(recent) if recent else None
+        days_left = december_days = None
+        if year_kwh is not None and recent and updated is not None and not incomplete:
             as_of = datetime.fromtimestamp(updated, zone)
             if as_of.date() == today:
                 next_year = datetime(year + 1, 1, 1, tzinfo=zone)
                 days_left = max(0, next_year.timestamp() - updated) / 86400
-                average = mean(recent)
-                remainder, model_days = self.temperature_forecast(daily_usage, as_of, next_year, average)
-                forecast = year_kwh + (remainder if model_days else days_left * average)
-        return {'year_forecast_model_days': model_days, 'year_forecast_kwh': forecast, 'daily_usage':daily_usage, 'year':year, 'january_kwh':january, 'year_kwh':year_kwh, 'configured':configured,'base_kwh':self.data.get('base_kwh'),'start':self.data.get('start'),
+                december = datetime(year, 12, 1, tzinfo=zone)
+                december_days = (next_year.timestamp() - max(updated, december.timestamp())) / 86400 if today.month < 12 else 0
+                remainder, model_days = self.temperature_forecast(daily_usage, as_of, next_year, average) if len(recent) >= 7 else (None, 0)
+                forecast = year_kwh + (remainder if model_days else average * (days_left + .10 * december_days))
+        strong = bool(model_days and model_days >= math.ceil(days_left))
+        spread = .20 if strong else .40
+        remaining = forecast - year_kwh if forecast is not None else None
+        return {'forecast_coverage': coverage, 'forecast_average': average, 'forecast_days_left': days_left,
+                'forecast_december_days': december_days, 'forecast_strong': strong,
+                'forecast_low': forecast - spread * remaining if remaining is not None else None,
+                'forecast_high': forecast + spread * remaining if remaining is not None else None,
+                'year_forecast_model_days': model_days, 'year_forecast_kwh': forecast, 'daily_usage':daily_usage, 'year':year, 'january_kwh':january, 'year_kwh':year_kwh, 'configured':configured,'base_kwh':self.data.get('base_kwh'),'start':self.data.get('start'),
             'daily_extra_kwh':daily_extra, 'radiator_kwh':radiator_kwh, 'comparison_percent':self.data.get('comparison_percent'), 'added_kwh':added,'total_kwh':total,
             'updated':self.data.get('updated'),'incomplete':incomplete,
             'note':self.error or ('Historie teilweise unvollständig' if any(r.get('partial') for r in rooms.values()) else None)}

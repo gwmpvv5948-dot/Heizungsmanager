@@ -1,3 +1,7 @@
+## 0.3.48
+
+- Jahresbalken für die Hauswärme mit vorläufiger Hochrechnung, Schätzspanne und Datenbasis.
+
 ## 0.3.47
 
 - Die Jahresprognose nutzt ein geprüftes Außentemperaturmodell, sobald genügend Daten vorliegen.
