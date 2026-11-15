@@ -26,9 +26,16 @@ class HouseMeterTests(unittest.TestCase):
         old={'source':'old','last':100,'added':2,'until':200}
         r=advance(old,[row(190,800),row(250,801)],row(300,802),200,300,'new')
         self.assertEqual(r['added'],4)
-    def test_unavailable_is_flagged_and_never_turns_into_zero(self):
-        r=advance({},[row(50,100),row(150,'unavailable')],row(200,'unavailable'),100,200,'sensor.e')
-        self.assertEqual(r['added'],0);self.assertTrue(r['partial'])
+    def test_unavailable_keeps_last_reading_and_counts_recovery_once(self):
+        reading = advance({}, [row(50, 100), row(90, 'unknown')],
+                          row(200, 'unavailable'), 100, 200, 'sensor.e')
+        self.assertEqual(reading['last'], 100)
+        self.assertEqual(reading['added'], 0)
+        self.assertFalse(reading['partial'])
+        recovered = advance(reading, [row(210, 102)], row(250, 102),
+                            200, 250, 'sensor.e')
+        self.assertEqual(recovered['added'], 2)
+        self.assertFalse(recovered['partial'])
 
 class HouseMeterConfigTests(unittest.IsolatedAsyncioTestCase):
     async def test_config_requires_confirmed_nonnegative_base_and_past_timestamp(self):

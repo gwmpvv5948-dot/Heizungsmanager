@@ -30,13 +30,13 @@ def advance(previous, records, current, begin, end, source, on_delta=None):
     partial=result.get('partial',False)
     rows=sorted([(s.last_updated.timestamp(),kwh(s)) for s in records if s.last_updated.timestamp()<=end],key=lambda p:p[0])
     if last is None:
-        seed=[v for t,v in rows if t<=begin]
+        seed=[v for t,v in rows if t<=begin and v is not None]
         last=seed[-1] if seed else None
         if last is None:
             partial=True
     for stamp,value in [*(p for p in rows if p[0]>begin),(end,kwh(current))]:
         if value is None:
-            partial=True
+            # Keep the last valid counter so the next reading catches up.
             continue
         if last is not None:
             delta = value - last if value >= last else value
