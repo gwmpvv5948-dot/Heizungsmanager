@@ -54,3 +54,16 @@ def strommanager_surplus(hass, now, pump_w):
     # Remove house-battery discharge from apparent PV surplus. Add the heat
     # pump's measured own load back, otherwise starting it removes its permission.
     return max(0,s.grid_export_w+min(0,s.battery_charge_w)+(pump_w if number(pump_w) else 0))
+
+
+def tesla_is_charging(hass, now):
+    """Use fresh measured wallbox load, independent of sleeping Tesla/PV data."""
+    controllers = getattr(hass, 'data', {}).get('solar_pilot', {}).get('controllers', {})
+    if len(controllers) != 1:
+        return False
+    controller = next(iter(controllers.values()))
+    watts = controller.number('wallbox_power')
+    age = controller.age('wallbox_power', now)
+    return (controller.boolean('wallbox_enabled') is True
+            and number(watts) and watts > 100
+            and number(age) and 0 <= age <= 120)

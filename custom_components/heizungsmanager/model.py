@@ -192,7 +192,7 @@ def cycle_guard(now, requested, active, since, config, temperature, target):
 
 
 def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_active=False, override=None,
-              pump_state=None, pump_state_since=None, radiators_state=False, pv_status=None, assist_trial=None):
+              pump_state=None, pump_state_since=None, radiators_state=False, pv_status=None, assist_trial=None, tesla_charging=False):
     config = normalize_config(config)
     rows = []
     predicted = temp
@@ -228,6 +228,9 @@ def make_plan(now, temp, current_outside, forecast, config, model, pump_heat_act
         pv = bool(pv_status and pv_status.get("preferred") and stamp<=pv_status.get("valid_until",0))
         if pv and sources == "radiators" and config.get("heat_pump"):
             sources = "both"
+        if tesla_charging and sources != "off":
+            sources = "radiators"
+            reason += " · Tesla lädt: Midea pausiert, nur Heizkörper; nach Ladeende wieder geplante Wärmequelle"
         pump_offset = config.get("pump_temperature_offset", 0.5) if config.get("heat_pump") and (not holding or (pv and predicted < target and sources in ("both", "heat_pump"))) else 0.0
         if config.get("midea_follow_me") == "off":
             pump_offset = config.get("pump_temperature_offset", 0.5) if config.get("heat_pump") and sources in ("both", "heat_pump") else 0.0

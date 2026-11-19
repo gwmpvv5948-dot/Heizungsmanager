@@ -64,3 +64,32 @@ class PVTests(unittest.TestCase):
         s.pv_w=2000;s.battery_charge_w=0;s.grid_export_w=500
         self.assertEqual(pv.strommanager_surplus(hass,1000,700),1200)
         self.assertIsNone(pv.strommanager_surplus(hass,1400,700))
+
+class TeslaPriorityTests(unittest.TestCase):
+    def test_actual_wallbox_load_not_vehicle_availability(self):
+        controller=N(number=lambda key:2800, age=lambda key,now:10, boolean=lambda key:True)
+        hass=N(data={'solar_pilot':{'controllers':{'one':controller}}})
+        self.assertTrue(pv.tesla_is_charging(hass,100))
+        controller.number=lambda key:0
+        self.assertFalse(pv.tesla_is_charging(hass,100))
+        controller.number=lambda key:2800
+        controller.age=lambda key,now:121
+        self.assertFalse(pv.tesla_is_charging(hass,100))
+        controller.age=lambda key,now:0
+        controller.boolean=lambda key:False
+        self.assertFalse(pv.tesla_is_charging(hass,100))
+
+    def test_charging_overrides_pv_and_cycle_guard_then_restores_schedule(self):
+        now=datetime(2026,11,5,12,tzinfo=ZoneInfo('Europe/Berlin'))
+        config=m.normalize_config(c.DEFAULTS)
+        config['pump_min_on_minutes']=30
+        kwargs=dict(pump_state=True,pump_state_since=now.timestamp(),
+                    pv_status={'preferred':True,'valid_until':now.timestamp()+86400})
+        paused=m.make_plan(now,18,5,[],config,m.ThermalModel(),tesla_charging=True,**kwargs)
+        self.assertTrue(all(not row['heat_pump'] for row in paused))
+        self.assertTrue(paused[0]['radiators'])
+        self.assertEqual(paused[0]['sources'],'radiators')
+        self.assertIn('Tesla lädt',paused[0]['reason'])
+        resumed=m.make_plan(now,18,5,[],config,m.ThermalModel(),**kwargs)
+        self.assertTrue(resumed[0]['heat_pump'])
+        self.assertNotEqual(resumed[0]['sources'],'radiators')

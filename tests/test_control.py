@@ -66,6 +66,25 @@ class ControlTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(args[1]=='set_hvac_mode' and args[2]['entity_id']=='climate.wz_midea_ac' and args[2]['hvac_mode']=='heat' for args in calls))
         self.assertFalse(any(args[1]=='set_hvac_mode' and args[2]['entity_id']=='climate.wz_vtherm' and args[2]['hvac_mode']=='heat' for args in calls))
 
+    async def test_tesla_load_hands_over_to_radiators_and_restores(self):
+        self.c.mode='Automatik'
+        self.states['climate.wz_midea_ac'].state='heat'
+        self.states['climate.wz_midea_ac'].attributes['temperature']=21
+        with patch.object(sys.modules['test_heating.coordinator'], 'tesla_is_charging',return_value=True):
+            await self.c.async_tick()
+        calls=[call.args for call in self.service.await_args_list]
+        self.assertTrue(any(a[1]=='set_hvac_mode' and a[2]=={'entity_id':'climate.wz_midea_ac','hvac_mode':'off'} for a in calls))
+        self.assertTrue(any(a[1]=='set_hvac_mode' and a[2]=={'entity_id':'climate.wz_vtherm','hvac_mode':'heat'} for a in calls))
+        self.assertTrue(self.c.data['tesla_charging'])
+        self.states['climate.wz_midea_ac'].state='off'
+        self.states['climate.wz_vtherm'].state='heat'
+        self.states['climate.wz_vtherm'].attributes['temperature']=self.c.data['target']
+        self.service.reset_mock()
+        with patch.object(sys.modules['test_heating.coordinator'], 'tesla_is_charging',return_value=False):
+            await self.c.async_tick()
+        self.assertTrue(self.c.data['plan'][0]['heat_pump'])
+        self.assertTrue(any(a.args[1]=='set_hvac_mode' and a.args[2]=={'entity_id':'climate.wz_midea_ac','hvac_mode':'heat'} for a in self.service.await_args_list))
+
     async def test_open_door_stops_both(self):
         for key in ('climate.wz_midea_ac','climate.wz_vtherm'): self.states[key].state='heat'
         self.states['binary_sensor.wz_terasse'].state='on'

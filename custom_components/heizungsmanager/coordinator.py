@@ -16,7 +16,7 @@ from .midea_follow_me import IR_CODES
 from .temperature import RoomTemperature
 from .temperature_history import temperature_history
 from .wall_heater import ENTITY_ID as WALL_HEATER_ENTITY, WallHeater
-from .pv import PVPreference, strommanager_snapshot, strommanager_surplus
+from .pv import PVPreference, strommanager_snapshot, strommanager_surplus, tesla_is_charging
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -616,10 +616,14 @@ class HeatingCoordinator(DataUpdateCoordinator):
         # Restarting HA conservatively starts a fresh protection interval.
         pump_since = pump_state.last_changed.timestamp() if pump_state else now.timestamp()
         can_trial = pump_on and self.mode == "Automatik" and not (startup_blocked or window_open or window_unknown or self.manual_until)
+        tesla_charging = (self.config.get("room_id", "wohnzimmer") == "wohnzimmer"
+                          and bool(self.config.get("radiators"))
+                          and tesla_is_charging(self.hass, now.timestamp()))
         plan = make_plan(now, temp, outside, forecast, self.config, self.model,
                          pump_on, self.override, pump_on, pump_since,
                          bool(self.state("radiators") and self.state("radiators").state == "heat"),pv_status,
-                         assist_trial=self._assist_trial if can_trial else None) if temp is not None else []
+                         assist_trial=self._assist_trial if can_trial else None,
+                         tesla_charging=tesla_charging) if temp is not None else []
         row = plan[0] if plan else None
         follow_me = None
         use_follow_me = self.config.get("midea_follow_me") != "off"
@@ -693,11 +697,11 @@ class HeatingCoordinator(DataUpdateCoordinator):
                 "window_open": window_open, "window_unknown": window_unknown,
                 "last_manual_trigger": self.manual_trigger,
                 "manual_until": self.manual_until.isoformat() if self.manual_until else None,
-                "pv_preference":pv_status,"plan": plan, "history": self.history, "model": self.model.dump(),
+                "tesla_charging":tesla_charging,"pv_preference":pv_status,"plan": plan, "history": self.history, "model": self.model.dump(),
                 "learning_quality": self.model.quality, "weather_note": self.weather_note,
                 "error": self.error, "updated": now.isoformat(), "config": self.config,
                 "history_source": self.history_source,
-                "plan_note": "Normalbetrieb bei geschlossener Tür; manuelle Eingriffe und Störungen nicht vorhersehbar. Keine Verbrauchsprognose."}
+                "plan_note": ("Solange Tesla lädt: nur Heizkörper. Ladeende unbekannt; nach Ladeende wird der Plan automatisch mit der konfigurierten Wärmequelle neu berechnet. " if tesla_charging else "") + "Normalbetrieb bei geschlossener Tür; manuelle Eingriffe und Störungen nicht vorhersehbar. Keine Verbrauchsprognose."}
         self.async_set_updated_data(data)
         if manual_applied or now.timestamp() - self.last_save >= 900:
             await self.async_save()

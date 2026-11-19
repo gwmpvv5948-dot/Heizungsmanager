@@ -1,3 +1,10 @@
+## 0.3.51
+
+- Während einer tatsächlichen Tesla-Ladung pausiert die Midea im Wohnzimmer; Heizkörper übernehmen das unveränderte Raumziel.
+- Erkennung über den Strommanager: Wallbox eingeschaltet und frisch gemessene Leistung über 100 W (Messung höchstens 120 Sekunden alt). Fahrzeug-Erreichbarkeit und PV-Prognose sind dafür nicht erforderlich.
+- Prüfung im normalen 30-Sekunden-Regelzyklus. Nach Ladeende gelten automatisch wieder die konfigurierten Wärmequellen, einschließlich Midea-Taktschutz beim Wiederanlauf.
+- Grund und Annahme zum unbekannten Ladeende stehen im Heizplan. Beobachten, Aus, Startschutz, Fensterpause und manuelle Pause bleiben wirksam; gespeicherte Phasen werden nicht geändert.
+
 ## 0.3.49
 
 - Die Jahresprognose steht in den aufklappbaren Details zum Wärmezähler.
