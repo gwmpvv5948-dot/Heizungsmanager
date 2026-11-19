@@ -1,3 +1,8 @@
+## 0.3.52
+
+- Sommermodus in den globalen Einstellungen nur nach Bestätigung ein- oder ausschalten.
+- Deutlicher Hinweis auf den aktiven Sommermodus in allen Ansichten mit Live-Aktualisierung.
+
 ## 0.3.51
 
 - Während einer tatsächlichen Tesla-Ladung pausiert die Midea im Wohnzimmer; Heizkörper übernehmen das unveränderte Raumziel.
